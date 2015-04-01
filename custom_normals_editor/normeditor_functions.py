@@ -1,3 +1,22 @@
+# ##### BEGIN GPL LICENSE BLOCK #####
+#
+#  This program is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License
+#  as published by the Free Software Foundation; either version 2
+#  of the License, or (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software Foundation,
+#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+#
+# ##### END GPL LICENSE BLOCK #####
+
+
 #	normals editor functions + classes
 
 import bpy, bmesh, sys
@@ -305,8 +324,8 @@ class cust_normals_gencustom(bpy.types.Operator):
 
 
 # generate default normals
-class cust_normals_reset(bpy.types.Operator):
-	bl_idname = 'object.cust_normals_reset'
+class cust_normals_gendefault(bpy.types.Operator):
+	bl_idname = 'object.cust_normals_gendefault'
 	bl_label = 'Generate Normals (Default)'
 	bl_description = 'Generate default normals'
 	bl_options = {'REGISTER', 'UNDO'}
@@ -322,29 +341,26 @@ class cust_normals_reset(bpy.types.Operator):
 		mesh = context.active_object.data
 		bendratio = context.window_manager.vn_bendingratio
 		
+		# using split normals
 		if context.window_manager.edit_splitnormals:
 			tempverts = [v.select for v in mesh.vertices]
+			
 			mesh.calc_normals_split()
+			# get old normals
 			oldloopnorms = [v.normal.copy() for v in mesh.loops]
-			
-			mesh.create_normals_split()
-			
+			#mesh.create_normals_split()
+			# reset/generate default normals
 			clearlist = tuple(tuple([0.0,0.0,0.0]) for i in range(len(mesh.vertices)))
 			mesh.normals_split_custom_set_from_vertices(clearlist)
-			
-			mesh.use_auto_smooth = True
-			mesh.show_edge_sharp = True
-			mesh.free_normals_split()
+			#mesh.free_normals_split()
 			
 			mesh.update()
-			mesh.calc_normals()
-			mesh.calc_normals_split()
+			#mesh.calc_normals_split()
 			
 			newloopnorms = [v.normal.copy() for v in mesh.loops]
 			finalnorms = []
 			
 			lcount = 0
-			
 			if context.window_manager.vn_genselectiononly:
 				tempverts
 				for f in mesh.polygons:
@@ -386,9 +402,38 @@ class cust_normals_reset(bpy.types.Operator):
 			del tempverts[:]
 			del finalnorms[:]
 			del finalnormslist[:]
+			
+		# using vertex normals
 		else:
+			bverts = [v for v in mesh.vertices]
+			
+			orignormals = []
+			newnormals = []
+			
+			for v in bverts:
+				orignormals.append(v.normal.copy())
+			
 			mesh.calc_normals()
-			mesh.update()
+			
+			for v in bverts:
+				newnormals.append(v.normal.copy())
+			
+			vcount = 0
+			if context.window_manager.vn_genselectiononly:
+				for v in bverts:
+					if v.select:
+						v.normal = ((orignormals[vcount] * (1.0 - bendratio)) + (newnormals[vcount] * bendratio)).normalized()
+					else:
+						v.normal = orignormals[vcount]
+					vcount += 1
+			else:
+				for v in bverts:
+					v.normal = ((orignormals[vcount] * (1.0 - bendratio)) + (newnormals[vcount] * bendratio)).normalized()
+					vcount += 1
+			
+			del bverts[:]
+			del orignormals[:]
+			del newnormals[:]
 		
 		context.area.tag_redraw()
 		
@@ -706,10 +751,12 @@ class cust_normals_manualget(bpy.types.Operator):
 		vecrow.enabled = False
 		layout.row().prop(context.window_manager, 'vn_selected_face', text='Face Index')
 
+
+# link to transfer vertex normals with source object selection
 class cust_normals_transfer(bpy.types.Operator):
 	bl_idname = 'object.cust_normals_transfer'
 	bl_label = 'Transfer Normals'
-	bl_description = 'Transfer normals based on editor settings'
+	bl_description = 'Transfer normals based on source object'
 	bl_options = {'REGISTER', 'UNDO'}
 	
 	@classmethod
