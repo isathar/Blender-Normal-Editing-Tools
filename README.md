@@ -14,12 +14,20 @@ Normals editor for Blender 2.74.
   - refer to 'keyslist.txt' for key names to use if changing
   - the line to change is:
   - 'kmi = km.keymap_items.new('wm.call_menu_pie', 'BUTTON4MOUSE', 'PRESS')'
-- Support for Vrav's Transfer Vertex Normals addon  
+- Transfer normals script based on Vrav's Transfer Vertex Normals
   
 ================================================================  
   
 *Changelog:*  
-
+  
+v0.0.3  
+- rewrote transfer vertex normals for speed + compatibility
+- ui fixes/optimizations
+- generation speed optimizations
+- changed way the script detects normals to use
+- added Flat generation mode (split normals only)
+- removed some unneeded variables  
+  
 v0.0.2  
 - added transfer functionality to ui panel
 - menu usability optimizations

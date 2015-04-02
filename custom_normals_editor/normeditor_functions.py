@@ -16,8 +16,8 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-
-#	normals editor functions + classes
+#######################################
+#	Normals Editor Functions + Classes
 
 import bpy, bmesh, sys
 from mathutils import Vector
@@ -26,30 +26,35 @@ from mathutils import Vector
 # autogenerate + set custom normals
 class cust_normals_genbent(bpy.types.Operator):
 	bl_idname = 'object.cust_normals_genbent'
-	bl_label = 'Generate Normals (Bent)'
+	bl_label = 'Bent'
 	bl_description = 'Calculate normals bent towards/away from 3d cursor'
 	bl_options = {'REGISTER', 'UNDO'}
 	
 	@classmethod
 	def poll(cls, context):
-		if context.active_object != None:
-			return context.active_object.type == 'MESH'
+		if context.active_object:
+			if context.active_object.data.use_auto_smooth:
+				if context.mode == 'OBJECT':
+					return context.active_object.type == 'MESH'
+			else:
+				return context.active_object.type == 'MESH'
 		return False
 	
 	def execute(self, context):
 		# gather vars
-		editsplit = context.window_manager.edit_splitnormals
+		editsplit = context.active_object.data.use_auto_smooth
 		showselected = context.window_manager.vn_genselectiononly
 		
 		mesh = context.active_object.data
 		mesh.update()
 		
-		bm = ''
+		meshverts = []
+		
 		if context.mode == 'EDIT_MESH':
 			bm = bmesh.from_edit_mesh(mesh)
+			meshverts = [v for v in bm.verts]
 		elif context.mode == 'OBJECT':
-			bm = bmesh.new()
-			bm.from_mesh(mesh)
+			meshverts = [v for v in mesh.vertices]
 		
 		# build lists
 		normslist = []
@@ -57,25 +62,23 @@ class cust_normals_genbent(bpy.types.Operator):
 		locslist = []
 		
 		if editsplit:
-			tempverts = [v.co for v in bm.verts]
 			mesh.calc_normals_split()
-			loopnorms = [v.normal for v in mesh.loops]
+			loopnorms = [v.normal.copy() for v in mesh.loops]
 			
 			loopcount = 0
-			for f in bm.faces:
+			for f in mesh.polygons:
 				fvns = []
-				for i in range(len(f.verts)):
+				for i in range(len(f.vertices)):
 					fvns.append(loopnorms[loopcount].copy())
 					loopcount += 1
 				normslist.append(fvns)
 				if showselected:
 					selectedlist.append(f.select)
-				locslist.append([tempverts[v.index].copy() for v in f.verts])
+				locslist.append([(meshverts[v].co).copy() for v in f.vertices])
 			
-			del tempverts[:]
 			del loopnorms[:]
 		else:
-			for v in bm.verts:
+			for v in meshverts:
 				normslist.append(v.normal.copy())
 				if showselected:
 					selectedlist.append(v.select)
@@ -133,11 +136,10 @@ class cust_normals_genbent(bpy.types.Operator):
 			mesh.update()
 		else:
 			if context.mode == 'EDIT_MESH':
-				tverts = [v for v in bm.verts]
-				for i in range(len(tverts)):
-					tverts[i].normal = normslist[i].copy()
+				for i in range(len(meshverts)):
+					meshverts[i].normal = normslist[i].copy()
 				
-				bmesh.update_edit_mesh(mesh, tessface=True, destructive=True)
+				bmesh.update_edit_mesh(mesh, tessface=False, destructive=False)
 				mesh.update()
 				
 			else:
@@ -159,25 +161,28 @@ class cust_normals_genbent(bpy.types.Operator):
 	
 	
 
-# - Custom (weighted by number of verts)
+# - Smooth (weighted by number of verts)
 class cust_normals_gencustom(bpy.types.Operator):
 	bl_idname = 'object.cust_normals_gencustom'
-	bl_label = 'Generate Normals (Smooth)'
+	bl_label = 'Smooth'
 	bl_description = 'Generate custom smooth normals'
 	bl_options = {'REGISTER', 'UNDO'}
 	
 	@classmethod
 	def poll(cls, context):
-		if context.active_object != None:
-			return context.active_object.type == 'MESH'
+		if context.active_object:
+			if context.active_object.data.use_auto_smooth:
+				if context.mode == 'OBJECT':
+					return context.active_object.type == 'MESH'
+			else:
+				return context.active_object.type == 'MESH'
 		return False
 	
 	def execute(self, context):
 		# gather vars
-		editsplit = context.window_manager.edit_splitnormals
+		editsplit = context.active_object.data.use_auto_smooth
 		showselected = context.window_manager.vn_genselectiononly
 		mesh = context.active_object.data
-		mesh.update()
 		
 		bm = ''
 		if context.mode == 'EDIT_MESH':
@@ -304,9 +309,10 @@ class cust_normals_gencustom(bpy.types.Operator):
 				tverts = [v for v in bm.verts]
 				for i in range(len(tverts)):
 					tverts[i].normal = normslist[i].copy()
-				bmesh.update_edit_mesh(mesh, tessface=True, destructive=True)
+				bmesh.update_edit_mesh(mesh, tessface=False, destructive=False)
 				mesh.update()
 			else:
+				mesh.update()
 				tverts = [v for v in mesh.vertices]
 				for i in range(len(tverts)):
 					tverts[i].normal = normslist[i].copy()
@@ -326,14 +332,17 @@ class cust_normals_gencustom(bpy.types.Operator):
 # generate default normals
 class cust_normals_gendefault(bpy.types.Operator):
 	bl_idname = 'object.cust_normals_gendefault'
-	bl_label = 'Generate Normals (Default)'
+	bl_label = 'Default'
 	bl_description = 'Generate default normals'
 	bl_options = {'REGISTER', 'UNDO'}
 	
 	@classmethod
 	def poll(cls, context):
-		if context.mode == 'OBJECT':
-			if context.active_object != None:
+		if context.active_object:
+			if context.active_object.data.use_auto_smooth:
+				if context.mode == 'OBJECT':
+					return context.active_object.type == 'MESH'
+			else:
 				return context.active_object.type == 'MESH'
 		return False
 	
@@ -342,20 +351,24 @@ class cust_normals_gendefault(bpy.types.Operator):
 		bendratio = context.window_manager.vn_bendingratio
 		
 		# using split normals
-		if context.window_manager.edit_splitnormals:
+		if context.active_object.data.use_auto_smooth:
 			tempverts = [v.select for v in mesh.vertices]
 			
 			mesh.calc_normals_split()
 			# get old normals
 			oldloopnorms = [v.normal.copy() for v in mesh.loops]
-			#mesh.create_normals_split()
+			
 			# reset/generate default normals
+			for e in mesh.edges:
+				e.use_edge_sharp = False
+			mesh.validate(clean_customdata=False)
 			clearlist = tuple(tuple([0.0,0.0,0.0]) for i in range(len(mesh.vertices)))
 			mesh.normals_split_custom_set_from_vertices(clearlist)
-			#mesh.free_normals_split()
+			mesh.free_normals_split()
 			
+			#mesh.calc_normals()
+			mesh.calc_normals_split()
 			mesh.update()
-			#mesh.calc_normals_split()
 			
 			newloopnorms = [v.normal.copy() for v in mesh.loops]
 			finalnorms = []
@@ -405,45 +418,135 @@ class cust_normals_gendefault(bpy.types.Operator):
 			
 		# using vertex normals
 		else:
-			bverts = [v for v in mesh.vertices]
-			
+			# create lists
+			vertslist = [v for v in mesh.vertices]
 			orignormals = []
 			newnormals = []
 			
-			for v in bverts:
+			# get old normals
+			for v in vertslist:
 				orignormals.append(v.normal.copy())
-			
+			# recalc
 			mesh.calc_normals()
-			
-			for v in bverts:
+			mesh.update()
+			# get new normals
+			for v in vertslist:
 				newnormals.append(v.normal.copy())
 			
+			# calculate, write to mesh
+			mesh.update()
 			vcount = 0
 			if context.window_manager.vn_genselectiononly:
-				for v in bverts:
+				for v in vertslist:
 					if v.select:
 						v.normal = ((orignormals[vcount] * (1.0 - bendratio)) + (newnormals[vcount] * bendratio)).normalized()
 					else:
 						v.normal = orignormals[vcount]
 					vcount += 1
 			else:
-				for v in bverts:
-					v.normal = ((orignormals[vcount] * (1.0 - bendratio)) + (newnormals[vcount] * bendratio)).normalized()
+				for v in vertslist:
+					tempv = ((orignormals[vcount] * (1.0 - bendratio)) + (newnormals[vcount] * bendratio)).normalized()
+					v.normal = tempv.copy()
 					vcount += 1
 			
-			del bverts[:]
+			# cleanup
+			del vertslist[:]
 			del orignormals[:]
 			del newnormals[:]
-		
+			
 		context.area.tag_redraw()
 		
 		return {'FINISHED'}
 	
 	def draw(self, context):
 		layout = self.layout
-		layout.column().prop(context.window_manager, 'vn_bendingratio', text='Amount')
-		layout.column().prop(context.window_manager, 'vn_genselectiononly', text='Selected Only')
+		layout.column().prop(context.window_manager, 
+			'vn_bendingratio', text='Amount')
+		layout.column().prop(context.window_manager, 
+			'vn_genselectiononly', text='Selected Only')
 
+
+# - Flat (split normals only)
+class cust_normals_genflat(bpy.types.Operator):
+	bl_idname = 'object.cust_normals_genflat'
+	bl_label = 'Flat'
+	bl_description = 'Generate custom flat normals'
+	bl_options = {'REGISTER', 'UNDO'}
+	
+	@classmethod
+	def poll(cls, context):
+		if context.active_object:
+			if context.mode == 'OBJECT' and context.active_object.data.use_auto_smooth:
+				return context.active_object.type == 'MESH'
+		return False
+	
+	def execute(self, context):
+		# gather vars
+		bendratio = context.window_manager.vn_bendingratio
+		
+		mesh = context.active_object.data
+		mesh.update()
+		mesh.calc_normals_split()
+		
+		# build lists
+		normslist = []
+		loopnorms = [v.normal for v in mesh.loops]
+		loopcount = 0
+		for f in mesh.polygons:
+			fvns = []
+			for i in range(len(f.vertices)):
+				fvns.append(loopnorms[loopcount].copy())
+				loopcount += 1
+			normslist.append(fvns)
+		del loopnorms[:]
+		
+		# create new normals
+		fcount = 0
+		if context.window_manager.vn_genselectiononly:
+			for f in mesh.polygons:
+				if f.select:
+					for i in range(len(f.vertices)):
+						normslist[fcount][i] = (
+							(normslist[fcount][i] 
+							* (1.0 - bendratio)) 
+							+ (f.normal.copy() 
+							* bendratio)
+						).normalized()
+				fcount += 1
+		else:
+			for f in mesh.polygons:
+				for i in range(len(f.vertices)):
+					normslist[fcount][i] = ((normslist[fcount][i] * (1.0 - bendratio)) + (f.normal.copy() * bendratio)).normalized()
+				fcount += 1
+		
+		# convert temp normals list to tuples
+		newnormslist = ()
+		for f in normslist:
+			newnormslist = newnormslist + tuple(tuple(n) for n in f)
+		
+		# apply new normals to the mesh
+		for e in mesh.edges:
+			e.use_edge_sharp = False
+		mesh.validate(clean_customdata=False)
+		mesh.normals_split_custom_set(newnormslist)
+		mesh.free_normals_split()
+		mesh.update()
+		
+		# clean up
+		del normslist[:]
+		
+		return {'FINISHED'}
+	
+	def draw(self, context):
+		layout = self.layout
+		layout.column().prop(context.window_manager,
+			'vn_bendingratio', text='Amount')
+		layout.column().prop(context.window_manager,
+			'vn_genselectiononly', text='Selected Only')
+
+
+####################################
+# Mode Switching
 
 # convert vert to split normals
 class cust_normals_applyvertsplit(bpy.types.Operator):
@@ -469,18 +572,20 @@ class cust_normals_applyvertsplit(bpy.types.Operator):
 		newnormslist = tuple(tuple(v) for v in normslist)
 		
 		for e in mesh.edges:
-			e.use_edge_sharp = False
+			if e.use_edge_sharp:
+				e.use_edge_sharp = False
 		
 		mesh.create_normals_split()
 		mesh.polygons.foreach_set("use_smooth", [True] * len(mesh.polygons))
 		mesh.validate(clean_customdata=False)
-		mesh.use_auto_smooth = True
-		mesh.show_edge_sharp = True
+		if not mesh.use_auto_smooth:
+			mesh.use_auto_smooth = True
+		if not mesh.show_edge_sharp:
+			mesh.show_edge_sharp = True
 		mesh.normals_split_custom_set_from_vertices(newnormslist)
 		mesh.free_normals_split()
 		mesh.update()
 		
-		context.window_manager.edit_splitnormals = True
 		
 		return {'FINISHED'}
 
@@ -500,27 +605,78 @@ class cust_normals_clearvertsplit(bpy.types.Operator):
 	
 	def execute(self, context):
 		mesh = context.active_object.data
-		newnormslist = tuple(tuple((0.0,0.0,0.0)) for v in mesh.vertices)
 		
+		mesh.update()
+		mesh.calc_normals_split()
+		
+		# store old normals
+		normslist = []
+		loopnorms = [v.normal for v in mesh.loops]
+		loopcount = 0
+		for f in mesh.polygons:
+			fvns = []
+			for i in range(len(f.vertices)):
+				fvns.append(loopnorms[loopcount].copy())
+				loopcount += 1
+			normslist.append(fvns)
+		del loopnorms[:]
+		
+		# clear old normals
+		emptynormslist = tuple(tuple((0,0,0)) for v in mesh.vertices)
 		for e in mesh.edges:
-			e.use_edge_sharp = False
+			if e.use_edge_sharp:
+				e.use_edge_sharp = False
 		
-		mesh.create_normals_split()
 		mesh.validate(clean_customdata=False)
-		mesh.use_auto_smooth = False
-		mesh.show_edge_sharp = False
-		mesh.normals_split_custom_set_from_vertices(newnormslist)
+		if mesh.use_auto_smooth:
+			mesh.use_auto_smooth = False
+		if mesh.show_edge_sharp:
+			mesh.show_edge_sharp = False
+		mesh.normals_split_custom_set_from_vertices(emptynormslist)
 		mesh.free_normals_split()
 		mesh.update()
 		
-		context.window_manager.edit_splitnormals = False
+		# gather old split normals
+		rawnormslist = [[] for v in mesh.vertices]
 		
-		bpy.ops.object.shade_smooth()
+		faceslist = [f for f in mesh.polygons]
+		fcount = 0
+		for f in faceslist:
+			newfn = []
+			vcount = 0
+			for v in f.vertices:
+				rawnormslist[v].append(normslist[fcount][vcount])
+				vcount += 1
+			fcount += 1
+		
+		# average split normals for new list
+		procnormslist = []
+		for vl in rawnormslist:
+			avgcount = len(vl)
+			tempv = Vector((0.0,0.0,0.0))
+			if avgcount > 0:
+				for v in vl:
+					tempv = tempv + v
+				tempv = tempv / avgcount
+			procnormslist.append(tempv)
+		
+		vertslist = [v for v in mesh.vertices]
+		vcount = 0
+		for v in vertslist:
+			v.normal = procnormslist[vcount]
+			vcount += 1
+		
+		
+		del rawnormslist[:]
+		del procnormslist[:]
+		del faceslist[:]
+		del vertslist[:]
 		
 		return {'FINISHED'}
 
 
-# Manual set/get for selection or all verts:
+#####################
+# Manual set/get
 
 class cust_normals_manualset_vert(bpy.types.Operator):
 	bl_idname = 'object.cust_normals_manualset_vert'
@@ -531,17 +687,23 @@ class cust_normals_manualset_vert(bpy.types.Operator):
 	@classmethod
 	def poll(cls, context):
 		if context.active_object:
-			if context.window_manager.edit_splitnormals:
-				return context.mode == 'OBJECT'
-			return context.mode == 'EDIT_MESH'
+			if not context.active_object.data.use_auto_smooth:
+				return context.active_object.type == 'MESH'
 		return False
 	
 	def execute(self, context):
 		mesh = context.active_object.data
+		mesh.update()
 		newnorm = context.window_manager.vn_dirvector
 		
-		bm = bmesh.from_edit_mesh(mesh)
-		vertslist = [v for v in bm.verts]
+		vertslist = []
+		
+		bm = ''
+		if context.mode == 'EDIT_MESH':
+			bm = bmesh.from_edit_mesh(mesh)
+			vertslist = [v for v in bm.verts]
+		elif context.mode == 'OBJECT':
+			vertslist = [v for v in mesh.vertices]
 		
 		if context.window_manager.vn_editselection:
 			for v in vertslist:
@@ -550,6 +712,11 @@ class cust_normals_manualset_vert(bpy.types.Operator):
 		else:
 			for v in vertslist:
 				v.normal = newnorm
+		
+		if context.mode == 'EDIT_MESH':
+			bmesh.update_edit_mesh(mesh, tessface=False, destructive=False)
+			mesh.update()
+		
 		del vertslist[:]
 		
 		context.area.tag_redraw()
@@ -558,8 +725,10 @@ class cust_normals_manualset_vert(bpy.types.Operator):
 	
 	def draw(self, context):
 		layout = self.layout
-		layout.column().prop(context.window_manager, 'vn_dirvector', text='New Normal')
-		layout.column().prop(context.window_manager, 'vn_editselection', text='Selected Only')
+		layout.column().prop(context.window_manager,
+			'vn_dirvector', text='New Normal')
+		layout.column().prop(context.window_manager,
+			'vn_editselection', text='Selected Only')
 
 
 class cust_normals_manualset_poly(bpy.types.Operator):
@@ -571,7 +740,7 @@ class cust_normals_manualset_poly(bpy.types.Operator):
 	@classmethod
 	def poll(cls, context):
 		if context.active_object:
-			if context.window_manager.edit_splitnormals:
+			if context.active_object.data.use_auto_smooth:
 				return context.mode == 'OBJECT'
 		return False
 	
@@ -658,9 +827,12 @@ class cust_normals_manualset_poly(bpy.types.Operator):
 	
 	def draw(self, context):
 		layout = self.layout
-		layout.column().prop(context.window_manager, 'vn_dirvector', text='New Normal')
-		layout.column().prop(context.window_manager, 'vn_selected_face', text='Face Index')
-		layout.column().prop(context.window_manager, 'vn_editselection', text='Selected Only')
+		layout.column().prop(context.window_manager,
+			'vn_dirvector', text='New Normal')
+		layout.column().prop(context.window_manager,
+			'vn_selected_face', text='Face Index')
+		layout.column().prop(context.window_manager,
+			'vn_editselection', text='Selected Only')
 
 
 class cust_normals_manualget(bpy.types.Operator):
@@ -678,7 +850,7 @@ class cust_normals_manualget(bpy.types.Operator):
 	def execute(self, context):
 		mesh = context.active_object.data
 		mesh.update()
-		if context.window_manager.edit_splitnormals:
+		if context.active_object.data.use_auto_smooth:
 			
 			
 			mesh.calc_normals_split()
@@ -725,7 +897,8 @@ class cust_normals_manualget(bpy.types.Operator):
 					break
 			
 			if len(selfaces) > selectedface:
-				context.window_manager.vn_dirvector = normslist[selfaces[selectedface]][selverts[selectedface]]
+				context.window_manager.vn_dirvector = normslist[
+					selfaces[selectedface]][selverts[selectedface]]
 			
 			del selfaces[:]
 			del selverts[:]
@@ -747,83 +920,167 @@ class cust_normals_manualget(bpy.types.Operator):
 	def draw(self, context):
 		layout = self.layout
 		vecrow = layout.column()
-		vecrow.prop(context.window_manager, 'vn_dirvector', text='Current Normal')
+		vecrow.prop(context.window_manager,
+			'vn_dirvector', text='Current Normal')
 		vecrow.enabled = False
-		layout.row().prop(context.window_manager, 'vn_selected_face', text='Face Index')
+		layout.row().prop(context.window_manager,
+			'vn_selected_face', text='Face Index')
 
 
-# link to transfer vertex normals with source object selection
-class cust_normals_transfer(bpy.types.Operator):
-	bl_idname = 'object.cust_normals_transfer'
-	bl_label = 'Transfer Normals'
-	bl_description = 'Transfer normals based on source object'
+#######################
+# Transfer Normals
+
+class cust_normals_transfer_selactive(bpy.types.Operator):
+	bl_idname = 'object.cust_normals_transfer_selactive'
+	bl_label = 'Transfer'
+	bl_description = 'Transfer normals from selected to active object'
 	bl_options = {'REGISTER', 'UNDO'}
 	
 	@classmethod
 	def poll(cls, context):
-		if context.active_object:
-			return context.mode == 'OBJECT'
+		if context.mode == 'OBJECT':
+			if context.active_object != None:
+				return context.active_object.type == 'MESH'
 		return False
 	
 	def execute(self, context):
+		influenceamount = abs(context.window_manager.normtrans_influence)
+		maxdist = context.window_manager.normtrans_maxdist
+		influencemult = 1.0 if (
+			context.window_manager.normtrans_influence > 0.0
+		) else -1.0
 		
-		mod = sys.modules["object_transfervertexnorms"]
-		if context.window_manager.normtrans_influence != 0.0:
-			if context.window_manager.normtrans_bounds != 'ONLY':
-				tempobjstr = context.window_manager.normtrans_sourceobj
-				if tempobjstr != '':
-					sourceobj = context.scene.objects[tempobjstr]
-					if sourceobj != context.active_object:
-						mod.transferVertexNormals(self, context, sourceobj,
-								[context.active_object],
-								context.window_manager.normtrans_influence,
-								context.window_manager.normtrans_maxdist,
-								context.window_manager.normtrans_bounds)
+		if maxdist <= 0.0:
+			maxdist = sys.float_info.max
+		if influenceamount > 0.0:
+			destobj = context.active_object.data
+			destobj.update()
+			
+			destdata = [[
+					(v.co).copy(),
+					(v.normal).copy()
+				] for v in destobj.vertices
+			]
+			newnormals = [[] for i in range(len(destobj.vertices))]
+			selobjects = [obj for obj in context.selected_objects]
+			
+			sourceverts = []
+			for obj in selobjects:
+				if obj.type == 'MESH':
+					objmesh = obj.data
+					if objmesh != destobj:
+						sourceverts = [[
+								(v.co).copy(),
+								(v.normal).copy()
+							] for v in objmesh.vertices
+						]
+						
+						if len(sourceverts) > 0:
+							vcount = 0
+							for v in destdata:
+								nearest = v[1].copy()
+								lastdist = sys.float_info.max
+								for dv in sourceverts:
+									curdistv = v[0] - dv[0]
+									curdist = curdistv.magnitude
+									if curdist < maxdist:
+										if curdist < lastdist:
+											nearest = dv[1].copy()
+											lastdist = curdist
+								
+								tempv = (
+									((v[1] * (1.0 - influenceamount)) 
+									+ (nearest * influenceamount))
+									* influencemult
+								).normalized()
+								
+								newnormals[vcount].append(tempv)
+								vcount += 1
+			
+			del destdata[:]
+			del sourceverts[:]
+			del selobjects[:]
+			
+			# average influences
+			procnormslist = []
+			for vl in newnormals:
+				tempv = Vector((0.0,0.0,0.0))
+				if len(vl) > 0:
+					for v in vl:
+						tempv = tempv + v
+					procnormslist.append((tempv / len(vl)).normalized())
+			
+			destverts = [v for v in destobj.vertices]
+			# write to split normals if enabled
+			if context.active_object.data.use_auto_smooth:
+				newnormslist = tuple(tuple(v) for v in procnormslist)
+				
+				for e in destobj.edges:
+					e.use_edge_sharp = False
+				
+				destobj.calc_normals_split()
+				destobj.validate(clean_customdata=False)
+				destobj.normals_split_custom_set_from_vertices(newnormslist)
+				destobj.free_normals_split()
+				destobj.update()
 			else:
-				mod.joinBoundaryVertexNormals(self, context, 
-							[context.active_object],
-							context.window_manager.normtrans_influence,
-							context.window_manager.normtrans_maxdist)
-		
-		mesh = context.active_object.data
-		
-		if context.window_manager.edit_splitnormals:
-			verts_list = [v.normal for v in mesh.vertices]
-			newnormslist = tuple(tuple(v) for v in verts_list)
+				vcount = 0
+				for v in destverts:
+					v.normal = procnormslist[vcount]
+					vcount += 1
+				
+			context.area.tag_redraw()
 			
-			for e in mesh.edges:
-				e.use_edge_sharp = False
+			del destverts[:]
+			del procnormslist[:]
+			del newnormals[:]
 			
-			mesh.create_normals_split()
-			mesh.polygons.foreach_set("use_smooth", [True] * len(mesh.polygons))
-			mesh.validate(clean_customdata=False)
-			mesh.use_auto_smooth = True
-			mesh.show_edge_sharp = True
-			mesh.normals_split_custom_set_from_vertices(newnormslist)
-			mesh.free_normals_split()
-			mesh.update()
-		
-		context.area.tag_redraw()
+		else:
+			print('No influence')
 		
 		return {'FINISHED'}
 	
 	def draw(self, context):
 		layout = self.layout
-		layout.row().prop_search(context.window_manager, 
-			"normtrans_sourceobj", 
-			context.scene, 
-			"objects", 
-			"Source",
-			"Source",
-			False,
-			'MESH_CUBE'
-		)
 		layout.row().prop(context.window_manager,
-			'normtrans_influence', 
-			text='Influence')
+			'normtrans_influence', text='Influence')
 		layout.row().prop(context.window_manager,
-			'normtrans_maxdist', 
-			text='Distance')
-		layout.row().prop(context.window_manager,
-			'normtrans_bounds', 
-			text='Bounds')
+			'normtrans_maxdist', text='Distance')
+		
+
+###############################################
+# import from saved data used by other addons:
+class cust_normals_readfbxtools(bpy.types.Operator):
+	bl_idname = 'object.cust_normals_readfbxtools'
+	bl_label = 'FBX Tools'
+	bl_description = 'Reads normals from data in a mesh saved with FBX Tools addon'
+	bl_options = {'REGISTER', 'UNDO'}
+	
+	@classmethod
+	def poll(cls, context):
+		if context.mode == 'OBJECT':
+			if context.active_object != None:
+				return context.active_object.type == 'MESH'
+		return False
+	
+	def execute(self, context):
+		
+		return {'FINISHED'}
+
+class cust_normals_readadsnaddon(bpy.types.Operator):
+	bl_idname = 'object.cust_normals_readadsnaddon'
+	bl_label = 'Recalc Vertex Normals'
+	bl_description = 'Reads normals from data in a mesh saved with Recalc Vertex Normals'
+	bl_options = {'REGISTER', 'UNDO'}
+	
+	@classmethod
+	def poll(cls, context):
+		if context.mode == 'OBJECT':
+			if context.active_object != None:
+				return context.active_object.type == 'MESH'
+		return False
+	
+	def execute(self, context):
+		
+		return {'FINISHED'}
+
