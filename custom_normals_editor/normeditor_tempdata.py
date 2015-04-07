@@ -22,5 +22,3 @@
 # pie menu bools:
 pmui_show_generate = False
 pmui_show_edit = False
-pmui_show_transfer = False
-

@@ -19,7 +19,7 @@
 ################################################
 # notes:
 #
-# normeditor_functions.cust_normals_transfer_selactive
+# normeditor_functions.cust_normals_transfer_tovert
 # - based on Vrav's Transfer Vertex Normals
 #
 
@@ -27,7 +27,7 @@
 bl_info = {
 	"name": "Normals Editing Tools",
 	"author": "Andreas Wiehn (isathar)",
-	"version": (0, 0, 1),
+	"version": (0, 0, 4),
 	"blender": (2, 74, 0),
 	"location": "View3D > Toolbar",
 	"description": "Editing tools for vertex normals",
@@ -76,50 +76,46 @@ class cust_normals_panel(bpy.types.Panel):
 			text='Auto Generate',toggle=True)
 		if context.window_manager.panelui_show_generate:
 			box2 = box.box()
-			box2.row().prop(context.window_manager, 'vn_genselectiononly',
+			box2.row().prop(context.window_manager, 'vn_editselection',
 				text='Selected Only')
 			box2.row().prop(context.window_manager, 'vn_bendingratio',
 				text='Ratio')
 			
 			box2 = box.box()
-			box2.row().prop(context.window_manager, 'vn_bendfalloff',
-				text='Bend Falloff Power')
+			box2.row().operator('object.cust_normals_gendefault',text='Default')
+			box2.row().operator('object.cust_normals_genflat',text='Flat')
+			box2.row().operator('object.cust_normals_gencustom',text='Smooth')
 			box2.row().operator('object.cust_normals_genbent',text='Bent')
 			
-			box.row().operator('object.cust_normals_gencustom',text='Smooth')
-			box.row().operator('object.cust_normals_gendefault',text='Default')
+			box2 = box.box()
+			box2.row().prop(context.window_manager, 'normtrans_maxdist',
+				text='Distance')
+			box2.row().operator('object.cust_normals_transfer_tovert',text='Transfer')
 		
 		# edit
 		box = layout.box()
 		box.row().prop(context.window_manager, 'panelui_show_edit',
 			text='Manual Edit',toggle=True)
 		if context.window_manager.panelui_show_edit:
-			box.row().column().prop(context.window_manager, 'vn_dirvector', text='')
-			row = box.row()
+			box2 = box.box()
+			box2.row().column().prop(context.window_manager, 'vn_dirvector', text='')
+			row = box2.row()
 			row.prop(context.window_manager, 'vn_selected_face', text='Index')
 			if not editsplit:
 				row.enabled = False
-			box.row().prop(context.window_manager, 'vn_editselection', text='Edit Selected')
-			row = box.row()
+			box2.row().prop(context.window_manager, 'vn_editselection', text='Edit Selected')
+			row = box2.row()
 			row.operator('object.cust_normals_manualget')
 			if editsplit:
 				row.operator('object.cust_normals_manualset_poly')
 			else:
 				row.operator('object.cust_normals_manualset_vert')
-		
-		# transfer
-		box = layout.box()
-		box.row().prop(context.window_manager, 'panelui_show_transfer',
-			text='Transfer',toggle=True)
-		if context.window_manager.panelui_show_transfer:
-			box.row().operator('object.cust_normals_transfer_selactive')
-		
-		
 
+
+# store keybind for cleanup
 addon_keymaps = []
 
 def register():
-	
 	# settings
 	bpy.utils.register_class(normeditor_functions.cust_normals_applyvertsplit)
 	bpy.utils.register_class(normeditor_functions.cust_normals_clearvertsplit)
@@ -133,7 +129,7 @@ def register():
 	bpy.utils.register_class(normeditor_functions.cust_normals_manualset_poly)
 	bpy.utils.register_class(normeditor_functions.cust_normals_manualget)
 	# transfer
-	bpy.utils.register_class(normeditor_functions.cust_normals_transfer_selactive)
+	bpy.utils.register_class(normeditor_functions.cust_normals_transfer_tovert)
 	
 	# panel menu
 	bpy.utils.register_class(cust_normals_panel)
@@ -142,7 +138,6 @@ def register():
 	bpy.utils.register_class(normeditor_piemenu.pm_opencustnormalspie)
 	bpy.utils.register_class(normeditor_piemenu.pm_opengencustnormals)
 	bpy.utils.register_class(normeditor_piemenu.pm_openeditcustnormals)
-	bpy.utils.register_class(normeditor_piemenu.pm_opentransfercustnormals)
 	# pie menu
 	bpy.utils.register_class(normeditor_piemenu.PieMenu_CustNormalsBase)
 	bpy.utils.register_class(normeditor_piemenu.PieMenu_CustNormalsKey)
@@ -156,7 +151,7 @@ def register():
 		kmi = km.keymap_items.new('wm.call_menu_pie', 'BUTTON4MOUSE', 'PRESS')
 		kmi.properties.name = "PieMenu_CustNormalsKey"
 		addon_keymaps.append(km)
-	
+
 
 def unregister():
 	# remove pie menu keybind
@@ -181,7 +176,7 @@ def unregister():
 	bpy.utils.unregister_class(normeditor_functions.cust_normals_manualset_poly)
 	bpy.utils.unregister_class(normeditor_functions.cust_normals_manualget)
 	# transfer
-	bpy.utils.unregister_class(normeditor_functions.cust_normals_transfer_selactive)
+	bpy.utils.unregister_class(normeditor_functions.cust_normals_transfer_tovert)
 	
 	# panel menu
 	bpy.utils.unregister_class(cust_normals_panel)
@@ -190,49 +185,34 @@ def unregister():
 	bpy.utils.unregister_class(normeditor_piemenu.pm_opencustnormalspie)
 	bpy.utils.unregister_class(normeditor_piemenu.pm_opengencustnormals)
 	bpy.utils.unregister_class(normeditor_piemenu.pm_openeditcustnormals)
-	bpy.utils.unregister_class(normeditor_piemenu.pm_opentransfercustnormals)
 	# pie menu
 	bpy.utils.unregister_class(normeditor_piemenu.PieMenu_CustNormalsBase)
 	bpy.utils.unregister_class(normeditor_piemenu.PieMenu_CustNormalsKey)
 	
 	clearvars(bpy)
-	
 
 
 def initdefaults(bpy):
-	import sys
-	
 	types = bpy.types
 	
 	# Generate
-	types.WindowManager.vn_genselectiononly = bpy.props.BoolProperty(
-		default=False,
-		description='Generate normals for selected vertices only')
 	types.WindowManager.vn_bendingratio = bpy.props.FloatProperty(
-		default=1.0,min=0.0,max=1.0,subtype='FACTOR',
+		default=1.0,min=-1.0,max=1.0,subtype='FACTOR',
 		description='Ratio between current and bent normals')
-	types.WindowManager.vn_bendfalloff = bpy.props.FloatProperty(
-		default=0.0,min=0.0,max=16.0,subtype='FACTOR',
-		description='Distance falloff power')
+	types.WindowManager.normtrans_maxdist = bpy.props.FloatProperty(
+		description='Transfer distance, 0 for infinite',
+		subtype='DISTANCE',unit='LENGTH',
+		min=0.0,max=4096.0,soft_max=100.0,default=0.01)
 	
 	# Manual Edit
 	types.WindowManager.vn_dirvector = bpy.props.FloatVectorProperty(
 		default=(0.0,0.0,1.0),subtype='TRANSLATION',max=1.0,min=-1.0)
 	types.WindowManager.vn_editselection = bpy.props.BoolProperty(
 		default=False,
-		description='Edit all normals on selected face')
+		description='Edit all selected normals')
 	types.WindowManager.vn_selected_face = bpy.props.IntProperty(
 		default=0,min=-1,max=3,
 		description='Index of the selected normal on the face')
-	
-	# Transfer
-	types.WindowManager.normtrans_influence = bpy.props.FloatProperty(
-		description='Transfer strength, negative inverts',
-		subtype='FACTOR',min=-1.0,max=1.0,default=1.0)
-	types.WindowManager.normtrans_maxdist = bpy.props.FloatProperty(
-		description='Transfer distance, 0 for infinite',
-		subtype='DISTANCE',unit='LENGTH',
-		min=0.0,max=sys.float_info.max,soft_max=20.0,default=0.01)
 	
 	# ui panel vars
 	types.WindowManager.panelui_show_generate = bpy.props.BoolProperty(
@@ -242,16 +222,15 @@ def initdefaults(bpy):
 	types.WindowManager.panelui_show_transfer = bpy.props.BoolProperty(
 		default=False)
 	
-	del types, sys
+	del types
 
 
 def clearvars(bpy):
-	props = ['edit_splitnormals',
-	'vn_genselectiononly','vn_bendingratio',
-	'vn_dirvector',
-	'vn_editselection','vn_selected_face',
-	'normtrans_influence',
-	'normtrans_maxdist','normtrans_bounds']
+	props = ['vn_bendingratio',
+		'vn_dirvector','vn_editselection','vn_selected_face',
+		'normtrans_maxdist',
+		'panelui_show_generate','panelui_show_edit','panelui_show_transfer'
+	]
 	
 	for p in props:
 		if bpy.context.window_manager.get(p) != None:
@@ -262,9 +241,8 @@ def clearvars(bpy):
 		except:
 			pass
 	del props[:]
-	
-	
-	
+
+
 
 if __name__ == '__main__':
 	register()

@@ -51,7 +51,7 @@ class PieMenu_CustNormalsBase(bpy.types.Menu):
 			pie.operator('object.pm_opencustnormalspie', text="Back", icon='PANEL_CLOSE')
 			pie.operator('object.cust_normals_gencustom', text='Smooth', icon='OBJECT_DATA')
 			pie.operator('object.cust_normals_genflat', text='Flat', icon='OBJECT_DATA')
-			
+			pie.operator('object.cust_normals_transfer_tovert', text="Transfer", icon='PANEL_CLOSE')
 		elif normeditor_tempdata.pmui_show_edit:
 			pie.label('   Edit')
 			pie.operator('object.cust_normals_manualget', text="Get", icon='EDIT_VEC')
@@ -60,16 +60,9 @@ class PieMenu_CustNormalsBase(bpy.types.Menu):
 			else:
 				pie.operator('object.cust_normals_manualset_vert', text="Set", icon='EDIT_VEC')
 			pie.operator('object.pm_opencustnormalspie', text="Back", icon='PANEL_CLOSE')
-		elif normeditor_tempdata.pmui_show_transfer:
-			pie.label('   Transfer')
-			pie.operator('object.cust_normals_transfer_selactive', text="Vertex", icon='PANEL_CLOSE')
-			pie.operator('object.cust_normals_transfer_selactive', text="Split", icon='PANEL_CLOSE')
-			pie.operator('object.pm_opencustnormalspie', text="Back", icon='PANEL_CLOSE')
 		else:
-			pie.label('   Main')
 			pie.operator('object.pm_opengencustnormals', text="Generate", icon='MESH_CUBE')
 			pie.operator('object.pm_openeditcustnormals', text="Edit", icon='EDIT_VEC')
-			pie.operator('object.pm_opentransfercustnormals', text="Transfer", icon='SCENE_DATA')
 			if editsplit:
 				pie.operator('object.cust_normals_clearvertsplit',text='Mode: Split', icon='OBJECT_DATA')
 			else:
@@ -90,9 +83,8 @@ class PieMenu_CustNormalsKey(bpy.types.Menu):
 	def execute(self, context):
 		(
 			normeditor_tempdata.pmui_show_generate,
-			normeditor_tempdata.pmui_show_edit,
-			normeditor_tempdata.pmui_show_transfer
-		) = False, False, False
+			normeditor_tempdata.pmui_show_edit
+		) = False, False
 		context.active_object.data.update()
 		return {'FINISHED'}
 	
@@ -101,10 +93,8 @@ class PieMenu_CustNormalsKey(bpy.types.Menu):
 		layout = self.layout
 		pie = layout.menu_pie()
 		
-		pie.label('  Main')
 		pie.operator('object.pm_opengencustnormals', text="Generate", icon='MESH_CUBE')
 		pie.operator('object.pm_openeditcustnormals', text="Edit", icon='EDIT_VEC')
-		pie.operator('object.pm_opentransfercustnormals', text="Transfer", icon='SCENE_DATA')
 		if editsplit:
 			pie.operator('object.cust_normals_clearvertsplit',text='Mode: Split', icon='OBJECT_DATA')
 		else:
@@ -129,9 +119,8 @@ class pm_opencustnormalspie(bpy.types.Operator):
 	def execute(self, context):
 		(
 			normeditor_tempdata.pmui_show_generate,
-			normeditor_tempdata.pmui_show_edit,
-			normeditor_tempdata.pmui_show_transfer
-		) = False, False, False
+			normeditor_tempdata.pmui_show_edit
+		) = False, False
 		bpy.ops.wm.call_menu_pie(name='PieMenu_CustNormalsBase')
 		return {'FINISHED'}
 
@@ -154,9 +143,8 @@ class pm_opengencustnormals(bpy.types.Operator):
 	def execute(self, context):
 		(
 			normeditor_tempdata.pmui_show_generate,
-			normeditor_tempdata.pmui_show_edit,
-			normeditor_tempdata.pmui_show_transfer
-		) = True, False, False
+			normeditor_tempdata.pmui_show_edit
+		) = True, False
 		bpy.ops.wm.call_menu_pie(name='PieMenu_CustNormalsBase')
 		return {'FINISHED'}
 
@@ -175,40 +163,13 @@ class pm_openeditcustnormals(bpy.types.Operator):
 	def execute(self, context):
 		(
 			normeditor_tempdata.pmui_show_generate,
-			normeditor_tempdata.pmui_show_edit,
-			normeditor_tempdata.pmui_show_transfer
-		) = False, True, False
+			normeditor_tempdata.pmui_show_edit
+		) = False, True
 		bpy.ops.wm.call_menu_pie(name='PieMenu_CustNormalsBase')
 		return {'FINISHED'}
 	
 	def draw(self, context):
 		layout = self.layout
 		layout.column().prop(context.window_manager, 'vn_dirvector', text='Custom Normal')
-
-# - Transfer -
-class pm_opentransfercustnormals(bpy.types.Operator):
-	bl_idname = 'object.pm_opentransfercustnormals'
-	bl_label = 'Transfer'
-	bl_options = {'REGISTER', 'UNDO'}
-	
-	@classmethod
-	def poll(cls, context):
-		if context.mode == 'OBJECT':
-			if context.active_object:
-				return context.active_object.type == 'MESH'
-		return False
-	
-	def execute(self, context):
-		(
-			normeditor_tempdata.pmui_show_generate,
-			normeditor_tempdata.pmui_show_edit,
-			normeditor_tempdata.pmui_show_transfer
-		) = False, False, True
-		bpy.ops.wm.call_menu_pie(name='PieMenu_CustNormalsBase')
-		return {'FINISHED'}
-	
-	def draw(self, context):
-		layout = self.layout
-		
 
 
