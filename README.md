@@ -9,9 +9,10 @@ Normals editor for Blender 2.74+
   
 *Features:*  
 - Normals editor with support for split and vertex normals
-- Pie menu for manual editing and auto-generate presets
-  - currently bound to Mouse Button 4, set up in '__init__.py'
-  - refer to 'keyslist.txt' for key names to use if changing
+- Supports manual editing and several methods to automatically generate normals via panel ui
+- Pie menu with auto-generate presets
+  - bound to Mouse Button 4 by default, set up in '__init__.py'
+  - refer to 'keyslist.txt' for key names
   - the line to change is:
   - 'kmi = km.keymap_items.new('wm.call_menu_pie', 'BUTTON4MOUSE', 'PRESS')'
 - Transfer normals script based on Vrav's Transfer Vertex Normals
