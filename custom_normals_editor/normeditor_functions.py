@@ -31,7 +31,7 @@ from mathutils import Vector
 class cust_normals_genbent(bpy.types.Operator):
 	bl_idname = 'object.cust_normals_genbent'
 	bl_label = 'Bent'
-	bl_description = 'Calculate normals bent towards/away from 3d cursor'
+	bl_description = 'Calculate normals bent away from 3d cursor'
 	bl_options = {'REGISTER', 'UNDO'}
 	
 	@classmethod
@@ -371,7 +371,8 @@ class cust_normals_gendefault(bpy.types.Operator):
 			mesh.free_normals_split()
 			
 			#mesh.calc_normals()
-			mesh.calc_normals_split()
+			#mesh.calc_normals_split()
+			bpy.ops.object.shade_smooth()
 			mesh.update()
 			
 			newloopnorms = [v.normal.copy() for v in mesh.loops]
@@ -423,7 +424,13 @@ class cust_normals_gendefault(bpy.types.Operator):
 		# using vertex normals
 		else:
 			# create lists
-			vertslist = [v for v in mesh.vertices]
+			vertslist = []
+			if context.mode == 'OBJECT':
+				vertslist = [v for v in mesh.vertices]
+			elif context.mode == 'EDIT_MESH':
+				bm = bmesh.from_edit_mesh(mesh)
+				vertslist = [v for v in bm.verts]
+			
 			orignormals = []
 			newnormals = []
 			
@@ -431,8 +438,13 @@ class cust_normals_gendefault(bpy.types.Operator):
 			for v in vertslist:
 				orignormals.append(v.normal.copy())
 			# recalc
-			mesh.calc_normals()
-			mesh.update()
+			
+			if context.mode == 'EDIT_MESH':
+				bm.normal_update()
+			else:
+				mesh.calc_normals()
+				mesh.update()
+			
 			# get new normals
 			for v in vertslist:
 				newnormals.append(v.normal.copy())
@@ -676,6 +688,125 @@ class cust_normals_clearvertsplit(bpy.types.Operator):
 		del procnormslist[:]
 		del faceslist[:]
 		del vertslist[:]
+		
+		return {'FINISHED'}
+
+
+#########################################################
+# - Flip Normals
+class cust_normals_flipdir(bpy.types.Operator):
+	bl_idname = 'object.cust_normals_flipdir'
+	bl_label = 'Flip'
+	bl_description = 'Flip the direction of selected normals'
+	bl_options = {'REGISTER', 'UNDO'}
+	
+	@classmethod
+	def poll(cls, context):
+		if context.active_object:
+			if context.active_object.data.use_auto_smooth:
+				if context.mode == 'OBJECT':
+					return context.active_object.type == 'MESH'
+			else:
+				return context.active_object.type == 'MESH'
+		return False
+	
+	def execute(self, context):
+		# gather vars
+		editsplit = context.active_object.data.use_auto_smooth
+		showselected = context.window_manager.vn_editselection
+		
+		mesh = context.active_object.data
+		mesh.update()
+		
+		meshverts = []
+		if context.mode == 'EDIT_MESH':
+			bm = bmesh.from_edit_mesh(mesh)
+			meshverts = [v for v in bm.verts]
+		elif context.mode == 'OBJECT':
+			meshverts = [v for v in mesh.vertices]
+		
+		# build lists
+		normslist = []
+		selectedlist = []
+		
+		if editsplit:
+			mesh.calc_normals_split()
+			loopnorms = [v.normal.copy() for v in mesh.loops]
+			
+			loopcount = 0
+			for f in mesh.polygons:
+				fvns = []
+				for i in range(len(f.vertices)):
+					fvns.append(loopnorms[loopcount].copy())
+					loopcount += 1
+				normslist.append(fvns)
+				if showselected:
+					selectedlist.append(f.select)
+			
+			del loopnorms[:]
+		else:
+			for v in meshverts:
+				normslist.append(v.normal.copy())
+				if showselected:
+					selectedlist.append(v.select)
+		
+		# flip normals in list
+		if editsplit:
+			if showselected:
+				for i in range(len(normslist)):
+					for j in range(len(normslist[i])):
+						if selectedlist[i]:
+							normslist[i][j] = normslist[i][j] * -1.0
+			else:
+				for i in range(len(normslist)):
+					for j in range(len(normslist[i])):
+						normslist[i][j] = normslist[i][j] * -1.0
+		else:
+			if showselected:
+				for i in range(len(normslist)):
+					if selectedlist[i]:
+						normslist[i] = normslist[i] * -1.0
+			else:
+				for i in range(len(normslist)):
+					normslist[i] = normslist[i] * -1.0
+		
+		
+		# convert temp normals list to tuples
+		# - should add a check for valid list here
+		newnormslist = ()
+		if editsplit:
+			for f in normslist:
+				newnormslist = newnormslist + tuple(tuple(n) for n in f)
+		else:
+			newnormslist = tuple(tuple(v) for v in normslist)
+		
+		# apply new normals to the mesh
+		if editsplit:
+			for e in mesh.edges:
+				e.use_edge_sharp = False
+			
+			mesh.validate(clean_customdata=False)
+			mesh.normals_split_custom_set(newnormslist)
+			mesh.free_normals_split()
+			mesh.update()
+		else:
+			if context.mode == 'EDIT_MESH':
+				for i in range(len(meshverts)):
+					meshverts[i].normal = normslist[i].copy()
+				
+				bmesh.update_edit_mesh(mesh, tessface=False, destructive=False)
+				mesh.update()
+				
+			else:
+				tverts = [v for v in mesh.vertices]
+				for i in range(len(tverts)):
+					tverts[i].normal = normslist[i].copy()
+				
+		context.area.tag_redraw()
+		
+		# clean up
+		del normslist[:]
+		del selectedlist[:]
 		
 		return {'FINISHED'}
 

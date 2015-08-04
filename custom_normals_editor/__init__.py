@@ -27,7 +27,7 @@
 bl_info = {
 	"name": "Normals Editing Tools",
 	"author": "Andreas Wiehn (isathar)",
-	"version": (0, 0, 4),
+	"version": (0, 0, 5),
 	"blender": (2, 74, 0),
 	"location": "View3D > Toolbar",
 	"description": "Editing tools for vertex normals",
@@ -39,7 +39,7 @@ bl_info = {
 
 import bpy
 
-from . import normeditor_functions, normeditor_piemenu
+from . import normeditor_functions
 
 
 # UI Panel
@@ -81,11 +81,15 @@ class cust_normals_panel(bpy.types.Panel):
 			box2.row().prop(context.window_manager, 'vn_bendingratio',
 				text='Ratio')
 			
+			box.row().operator('object.cust_normals_gendefault',text='Default')
+			
 			box2 = box.box()
-			box2.row().operator('object.cust_normals_gendefault',text='Default')
 			box2.row().operator('object.cust_normals_genflat',text='Flat')
 			box2.row().operator('object.cust_normals_gencustom',text='Smooth')
-			box2.row().operator('object.cust_normals_genbent',text='Bent')
+			
+			box.row().operator('object.cust_normals_genbent',text='Bent')
+			
+			box.row().operator('object.cust_normals_flipdir',text='Flip')
 			
 			box2 = box.box()
 			box2.row().prop(context.window_manager, 'normtrans_maxdist',
@@ -106,10 +110,37 @@ class cust_normals_panel(bpy.types.Panel):
 			box2.row().prop(context.window_manager, 'vn_editselection', text='Edit Selected')
 			row = box2.row()
 			row.operator('object.cust_normals_manualget')
-			if editsplit:
-				row.operator('object.cust_normals_manualset_poly')
-			else:
+			if not editsplit:
 				row.operator('object.cust_normals_manualset_vert')
+			else:
+				row.operator('object.cust_normals_manualset_poly')
+			
+		
+
+
+class PieMenu_CustNormalsBase(bpy.types.Menu):
+	bl_label = 'Generate Normals'
+	
+	@classmethod
+	def poll(cls, context):
+		if context.mode == 'OBJECT' or context.mode == 'EDIT_MESH':
+			if context.active_object:
+				return context.active_object.type == 'MESH'
+		return False
+	
+	def execute(self, context):
+		context.active_object.data.update()
+		return {'FINISHED'}
+	
+	def draw(self, context):
+		layout = self.layout
+		pie = layout.menu_pie()
+		pie.operator('object.cust_normals_gencustom', text='Smooth', icon='MATCUBE')
+		pie.operator('object.cust_normals_genbent', text='Bent', icon='MATSPHERE')
+		pie.operator('object.cust_normals_gendefault', text="Default", icon='FILE_REFRESH')
+		pie.operator('object.cust_normals_transfer_tovert', text="Transfer", icon='ORTHO')
+		pie.operator('object.cust_normals_genflat', text='Flat', icon='EDITMODE_HLT')
+		pie.operator('object.cust_normals_flipdir', text='Flip', icon='MATSPHERE')
 
 
 # store keybind for cleanup
@@ -124,6 +155,7 @@ def register():
 	bpy.utils.register_class(normeditor_functions.cust_normals_gencustom)
 	bpy.utils.register_class(normeditor_functions.cust_normals_genbent)
 	bpy.utils.register_class(normeditor_functions.cust_normals_genflat)
+	bpy.utils.register_class(normeditor_functions.cust_normals_flipdir)
 	# manual edit
 	bpy.utils.register_class(normeditor_functions.cust_normals_manualset_vert)
 	bpy.utils.register_class(normeditor_functions.cust_normals_manualset_poly)
@@ -134,13 +166,8 @@ def register():
 	# panel menu
 	bpy.utils.register_class(cust_normals_panel)
 	
-	# pie menu functions
-	bpy.utils.register_class(normeditor_piemenu.pm_opencustnormalspie)
-	bpy.utils.register_class(normeditor_piemenu.pm_opengencustnormals)
-	bpy.utils.register_class(normeditor_piemenu.pm_openeditcustnormals)
 	# pie menu
-	bpy.utils.register_class(normeditor_piemenu.PieMenu_CustNormalsBase)
-	bpy.utils.register_class(normeditor_piemenu.PieMenu_CustNormalsKey)
+	bpy.utils.register_class(PieMenu_CustNormalsBase)
 	
 	initdefaults(bpy)
 	
@@ -149,7 +176,7 @@ def register():
 	if wm.keyconfigs.addon:
 		km = wm.keyconfigs.addon.keymaps.new(name='Object Non-modal')
 		kmi = km.keymap_items.new('wm.call_menu_pie', 'BUTTON4MOUSE', 'PRESS')
-		kmi.properties.name = "PieMenu_CustNormalsKey"
+		kmi.properties.name = "PieMenu_CustNormalsBase"
 		addon_keymaps.append(km)
 
 
@@ -171,6 +198,7 @@ def unregister():
 	bpy.utils.unregister_class(normeditor_functions.cust_normals_gencustom)
 	bpy.utils.unregister_class(normeditor_functions.cust_normals_genbent)
 	bpy.utils.unregister_class(normeditor_functions.cust_normals_genflat)
+	bpy.utils.unregister_class(normeditor_functions.cust_normals_flipdir)
 	# manual edit
 	bpy.utils.unregister_class(normeditor_functions.cust_normals_manualset_vert)
 	bpy.utils.unregister_class(normeditor_functions.cust_normals_manualset_poly)
@@ -181,13 +209,8 @@ def unregister():
 	# panel menu
 	bpy.utils.unregister_class(cust_normals_panel)
 	
-	# pie menu functions
-	bpy.utils.unregister_class(normeditor_piemenu.pm_opencustnormalspie)
-	bpy.utils.unregister_class(normeditor_piemenu.pm_opengencustnormals)
-	bpy.utils.unregister_class(normeditor_piemenu.pm_openeditcustnormals)
 	# pie menu
-	bpy.utils.unregister_class(normeditor_piemenu.PieMenu_CustNormalsBase)
-	bpy.utils.unregister_class(normeditor_piemenu.PieMenu_CustNormalsKey)
+	bpy.utils.unregister_class(PieMenu_CustNormalsBase)
 	
 	clearvars(bpy)
 
@@ -197,8 +220,8 @@ def initdefaults(bpy):
 	
 	# Generate
 	types.WindowManager.vn_bendingratio = bpy.props.FloatProperty(
-		default=1.0,min=-1.0,max=1.0,subtype='FACTOR',
-		description='Ratio between current and bent normals')
+		default=1.0,min=0.0,max=1.0,subtype='FACTOR',
+		description='Ratio between current and generated normals')
 	types.WindowManager.normtrans_maxdist = bpy.props.FloatProperty(
 		description='Transfer distance, 0 for infinite',
 		subtype='DISTANCE',unit='LENGTH',
