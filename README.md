@@ -21,7 +21,14 @@ Normals editor for Blender 2.74+
   
 *Changelog:*  
   
-v0.0.5 (current)  
+v0.0.6 (current)  
+- overhauled Transfer functions:
+  - transfer should no longer reset existing normals
+  - fixed weird behavior with 'selected only' enabled
+  - created specialized version of the function for split normals
+  - added toggle to use face selection instead of vertex selection while using split normals  
+  
+v0.0.5  
 - fixed Default Auto-generate mode for split normals in Blender 2.75 (change should also work in older versions)
 - tooltip text fixes
 - consolidated pie menu and other functions into one file, removed unneeded temp_data file

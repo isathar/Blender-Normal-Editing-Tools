@@ -1068,11 +1068,11 @@ class cust_normals_manualget(bpy.types.Operator):
 
 
 #######################
-# Transfer Normals
+# Transfer Normals - vertex normals destination
 class cust_normals_transfer_tovert(bpy.types.Operator):
 	bl_idname = 'object.cust_normals_transfer_tovert'
 	bl_label = 'Transfer'
-	bl_description = 'Transfer normals from selected to active object'
+	bl_description = 'Transfer normals from selected to active object (vertex)'
 	bl_options = {'REGISTER', 'UNDO'}
 	
 	@classmethod
@@ -1098,7 +1098,6 @@ class cust_normals_transfer_tovert(bpy.types.Operator):
 			maxdist = fmax
 		if influenceamount > 0.0:
 			destobj = context.active_object.data
-			destobj.update()
 			
 			destdata = [[
 					(v.co).copy(),
@@ -1152,7 +1151,8 @@ class cust_normals_transfer_tovert(bpy.types.Operator):
 									).normalized()
 									newnormals[vcount].append(tempv)
 								else:
-									newnormals[vcount].append(v[0].copy())
+									newnormals[vcount].append(v[1].copy())
+								
 								vcount += 1
 			
 			del destdata[:]
@@ -1169,27 +1169,17 @@ class cust_normals_transfer_tovert(bpy.types.Operator):
 							tempv = tempv + v
 						procnormslist.append((tempv / len(vl)).normalized())
 				
-				destverts = [v for v in destobj.vertices]
-				# write to split normals if enabled
-				# - temp, rewrite for actual split normals support pending
-				if context.active_object.data.use_auto_smooth:
-					newnormslist = tuple(tuple(v) for v in procnormslist)
-					
-					for e in destobj.edges:
-						e.use_edge_sharp = False
-					
-					destobj.calc_normals_split()
-					destobj.validate(clean_customdata=False)
-					destobj.normals_split_custom_set_from_vertices(newnormslist)
-					destobj.free_normals_split()
-					destobj.update()
-				else:
-					vcount = 0
-					for v in destverts:
-						v.normal = procnormslist[vcount]
-						vcount += 1
-					
-				context.area.tag_redraw()
+				# TBD: rewrite to use bmesh throughout this function instead of both constructs
+				bm = bmesh.new()
+				bm.from_mesh(destobj)
+				destverts = [v for v in bm.verts]
+				
+				vcount = 0
+				for v in destverts:
+					v.normal = procnormslist[vcount]
+					vcount += 1
+				
+				bm.to_mesh(destobj)
 				
 				del destverts[:]
 				del procnormslist[:]
@@ -1209,6 +1199,174 @@ class cust_normals_transfer_tovert(bpy.types.Operator):
 			'vn_bendingratio', text='Ratio')
 		layout.row().prop(context.window_manager,
 			'normtrans_maxdist', text='Distance')
+		layout.column().prop(context.window_manager,
+			'vn_editselection', text='Selected Only')
+
+
+#######################
+# Transfer Normals - split normals destination
+class cust_normals_transfer_topoly(bpy.types.Operator):
+	bl_idname = 'object.cust_normals_transfer_topoly'
+	bl_label = 'Transfer'
+	bl_description = 'Transfer normals from selected to active object (split)'
+	bl_options = {'REGISTER', 'UNDO'}
+	
+	@classmethod
+	def poll(cls, context):
+		if context.mode == 'OBJECT':
+			if context.active_object != None:
+				return context.active_object.type == 'MESH'
+		return False
+	
+	def execute(self, context):
+		# limited to 8192 since float_info.max threw errors in old falloff calc
+		fmax = 8192.0
+		
+		totalinfluence = abs(context.window_manager.vn_bendingratio)
+		influenceamount = abs(context.window_manager.vn_bendingratio)
+		
+		maxdist = context.window_manager.normtrans_maxdist
+		influencemult = 1.0 if (
+			context.window_manager.vn_bendingratio > 0.0
+		) else -1.0
+		
+		selectByFace = context.window_manager.vn_editbyface
+		editselection = context.window_manager.vn_editselection
+		
+		if maxdist <= 0.0:
+			maxdist = fmax
+		if influenceamount > 0.0:
+			destobj = context.active_object.data
+			
+			destobj.calc_normals_split()
+			
+			vertslist = [v for v in destobj.vertices]
+			faceslist = [f for f in destobj.polygons]
+			loopnorms = [l.normal for l in destobj.loops]
+			
+			destdata = []
+			
+			loopcount = 0
+			for f in faceslist:
+				fvns = []
+				fcos = []
+				selbools = []
+				
+				for v in f.vertices:
+					fcos.append(vertslist[v].co.copy())
+					fvns.append(loopnorms[loopcount].copy())
+					if editselection:
+						if selectByFace:
+							selbools.append(f.select)
+						else:
+							selbools.append(vertslist[v].select)
+					else:
+						selbools.append(True)
+						
+					selectByFace
+					loopcount += 1
+				
+				destdata.append([fcos,fvns,selbools])
+			
+			newnormals = []
+			for i in range(len(destdata)):
+				newnormals.append([])
+				for j in range(len(destdata)):
+					newnormals[i].append([])
+			
+			selobjects = [obj for obj in context.selected_objects]
+			
+			for obj in selobjects:
+				if obj.type == 'MESH':
+					objmesh = obj.data
+					if objmesh != destobj:
+						foundobj = True
+						sourceverts = [[
+								(v.co).copy(),
+								(v.normal).copy()
+							] for v in objmesh.vertices
+						]
+						
+						if len(sourceverts) > 0:
+							fcount = 0
+							
+							for f in destdata:
+								for i in range(len(f[0])):
+									lastdist = maxdist
+									nearest = f[1][i].copy()
+									
+									if f[2][i]:
+										for dv in sourceverts:
+											curdistv = f[0][i] - dv[0]
+											curdist = curdistv.magnitude
+											influenceamount = totalinfluence
+											
+											if curdist < maxdist:
+												if curdist < lastdist:
+													nearest = dv[1].copy()
+													lastdist = curdist
+										
+										tempv = (
+											((f[1][i] * (1.0 - influenceamount)) 
+											+ (nearest * influenceamount))
+											* influencemult
+										).normalized()
+										newnormals[fcount][i].append(tempv.copy())
+									
+									else:
+										newnormals[fcount][i].append(f[1][i].copy())
+								
+								fcount += 1
+			
+			del destdata[:]
+			del selobjects[:]
+			del vertslist[:]
+			del faceslist[:]
+			del loopnorms[:]
+			
+			if foundobj:
+				
+				procnormslist = []
+				for i in range(len(newnormals)):
+					procnormslist.append([])
+					for j in range(len(newnormals[i])):
+						tempv = Vector((0.0,0.0,0.0))
+						if len(newnormals[i][j]) > 0:
+							for v in newnormals[i][j]:
+								tempv = tempv + v
+							procnormslist[i].append((tempv / len(newnormals[i][j])).normalized())
+				
+				newnormslist = ()
+				for f in procnormslist:
+					newnormslist = newnormslist + tuple(tuple(v) for v in f)
+				
+				for e in destobj.edges:
+					e.use_edge_sharp = False
+				
+				destobj.validate(clean_customdata=False)
+				destobj.normals_split_custom_set(newnormslist)
+				destobj.free_normals_split()
+				destobj.update()
+				
+				context.area.tag_redraw()
+			else:
+				print('Need more than one object')
+				
+			del newnormals[:]
+			
+		else:
+			print('No influence')
+		
+		return {'FINISHED'}
+	
+	def draw(self, context):
+		layout = self.layout
+		layout.row().prop(context.window_manager,
+			'vn_bendingratio', text='Ratio')
+		layout.row().prop(context.window_manager,
+			'normtrans_maxdist', text='Distance')
+		layout.column().prop(context.window_manager,
+			'vn_editselection', text='Selected Only')
 		
 
 ###############################################

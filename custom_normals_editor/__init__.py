@@ -27,12 +27,12 @@
 bl_info = {
 	"name": "Normals Editing Tools",
 	"author": "Andreas Wiehn (isathar)",
-	"version": (0, 0, 5),
+	"version": (0, 0, 6),
 	"blender": (2, 74, 0),
 	"location": "View3D > Toolbar",
-	"description": "Editing tools for vertex normals",
+	"description": "Editing tools for vertex and split vertex normals",
 	"warning": "",
-	"wiki_url": "",
+	"wiki_url": "https://github.com/isathar/Blender-Normal-Editing-Tools/wiki",
 	"tracker_url": "https://github.com/isathar/Blender-Normal-Editing-Tools/issues/",
 	"category": "Mesh"}
 
@@ -94,7 +94,13 @@ class cust_normals_panel(bpy.types.Panel):
 			box2 = box.box()
 			box2.row().prop(context.window_manager, 'normtrans_maxdist',
 				text='Distance')
-			box2.row().operator('object.cust_normals_transfer_tovert',text='Transfer')
+			
+			if editsplit:
+				box2.row().prop(context.window_manager, 'vn_editbyface',
+					text='Face Selection')
+				box2.row().operator('object.cust_normals_transfer_topoly',text='Transfer')
+			else:
+				box2.row().operator('object.cust_normals_transfer_tovert',text='Transfer')
 		
 		# edit
 		box = layout.box()
@@ -138,7 +144,12 @@ class PieMenu_CustNormalsBase(bpy.types.Menu):
 		pie.operator('object.cust_normals_gencustom', text='Smooth', icon='MATCUBE')
 		pie.operator('object.cust_normals_genbent', text='Bent', icon='MATSPHERE')
 		pie.operator('object.cust_normals_gendefault', text="Default", icon='FILE_REFRESH')
-		pie.operator('object.cust_normals_transfer_tovert', text="Transfer", icon='ORTHO')
+		
+		if context.active_object.data.use_auto_smooth:
+			pie.operator('object.cust_normals_transfer_topoly', text="Transfer", icon='ORTHO')
+		else:
+			pie.operator('object.cust_normals_transfer_tovert', text="Transfer", icon='ORTHO')
+		
 		pie.operator('object.cust_normals_genflat', text='Flat', icon='EDITMODE_HLT')
 		pie.operator('object.cust_normals_flipdir', text='Flip', icon='MATSPHERE')
 
@@ -162,6 +173,7 @@ def register():
 	bpy.utils.register_class(normeditor_functions.cust_normals_manualget)
 	# transfer
 	bpy.utils.register_class(normeditor_functions.cust_normals_transfer_tovert)
+	bpy.utils.register_class(normeditor_functions.cust_normals_transfer_topoly)
 	
 	# panel menu
 	bpy.utils.register_class(cust_normals_panel)
@@ -205,6 +217,7 @@ def unregister():
 	bpy.utils.unregister_class(normeditor_functions.cust_normals_manualget)
 	# transfer
 	bpy.utils.unregister_class(normeditor_functions.cust_normals_transfer_tovert)
+	bpy.utils.unregister_class(normeditor_functions.cust_normals_transfer_topoly)
 	
 	# panel menu
 	bpy.utils.unregister_class(cust_normals_panel)
@@ -233,6 +246,9 @@ def initdefaults(bpy):
 	types.WindowManager.vn_editselection = bpy.props.BoolProperty(
 		default=False,
 		description='Edit all selected normals')
+	types.WindowManager.vn_editbyface = bpy.props.BoolProperty(
+		default=False,
+		description='Use selected faces instead of vertices')
 	types.WindowManager.vn_selected_face = bpy.props.IntProperty(
 		default=0,min=-1,max=3,
 		description='Index of the selected normal on the face')
@@ -250,7 +266,7 @@ def initdefaults(bpy):
 
 def clearvars(bpy):
 	props = ['vn_bendingratio',
-		'vn_dirvector','vn_editselection','vn_selected_face',
+		'vn_dirvector','vn_editselection','vn_editbyface','vn_selected_face',
 		'normtrans_maxdist',
 		'panelui_show_generate','panelui_show_edit','panelui_show_transfer'
 	]
