@@ -21,7 +21,10 @@ Normals editor for Blender 2.74+
   
 *Changelog:*  
   
-v0.0.6 (current)  
+v0.0.7 (current)  
+- fixed ridiculous memory usage + half-working split normals transfer caused by typos  
+  
+v0.0.6    
 - overhauled Transfer functions:
   - transfer should no longer reset existing normals
   - fixed weird behavior with 'selected only' enabled

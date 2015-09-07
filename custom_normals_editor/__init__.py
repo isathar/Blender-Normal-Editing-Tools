@@ -27,7 +27,7 @@
 bl_info = {
 	"name": "Normals Editing Tools",
 	"author": "Andreas Wiehn (isathar)",
-	"version": (0, 0, 6),
+	"version": (0, 0, 7),
 	"blender": (2, 74, 0),
 	"location": "View3D > Toolbar",
 	"description": "Editing tools for vertex and split vertex normals",

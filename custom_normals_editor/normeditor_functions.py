@@ -1268,13 +1268,22 @@ class cust_normals_transfer_topoly(bpy.types.Operator):
 				
 				destdata.append([fcos,fvns,selbools])
 			
+			print ("Loop 1 complete")
+			
 			newnormals = []
+			
 			for i in range(len(destdata)):
-				newnormals.append([])
-				for j in range(len(destdata)):
-					newnormals[i].append([])
+				tempnorms = []
+				for j in range(len(destdata[i][1])):
+					tempnorms.append([])
+				newnormals.append(tempnorms)
 			
 			selobjects = [obj for obj in context.selected_objects]
+			
+			print ("Loop 2 complete")
+			
+			sourceverts = []
+			
 			
 			for obj in selobjects:
 				if obj.type == 'MESH':
@@ -1318,11 +1327,11 @@ class cust_normals_transfer_topoly(bpy.types.Operator):
 								
 								fcount += 1
 			
+			del faceslist[:]
+			del vertslist[:]
+			del loopnorms[:]
 			del destdata[:]
 			del selobjects[:]
-			del vertslist[:]
-			del faceslist[:]
-			del loopnorms[:]
 			
 			if foundobj:
 				
