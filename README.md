@@ -21,6 +21,10 @@ Normals editor for Blender 2.74+
   
 *Changelog:*  
 
+v1.0.1 (current)  
+- removed old face index variable
+- added new mode enum to cleanup
+
 v1.0.0 (current)  
 - *New Feature*:
   - added new manual edit mode using a manipulator object

@@ -31,7 +31,7 @@
 bl_info = {
 	"name": "Normals Editing Tools",
 	"author": "Andreas Wiehn (isathar)",
-	"version": (1, 0, 0),
+	"version": (1, 0, 1),
 	"blender": (2, 74, 0),
 	"location": "View3D > Toolbar",
 	"description": "Editing tools for vertex and split vertex normals",
@@ -271,10 +271,7 @@ def initdefaults(bpy):
 	types.WindowManager.vn_editselection = bpy.props.BoolProperty(
 		default=False,
 		description='Edit all selected normals')
-	types.WindowManager.vn_selected_face = bpy.props.IntProperty(
-		default=0,min=-1,max=3,
-		description='Index of the selected normal on the face')
-
+	
 	types.WindowManager.vn_editmode_enabled = bpy.props.BoolProperty(
 		default=False,
 		description='Enable editing with manipulator object')
@@ -296,7 +293,7 @@ def initdefaults(bpy):
 
 def clearvars(bpy):
 	props = ['vn_bendingratio',
-		'vn_dirvector','vn_editselection','vn_editbyface','vn_selected_face',
+		'vn_dirvector','vn_editselection','vn_editbyface','vn_normalsgenmode',
 		'normtrans_maxdist','vn_editmode_enabled',
 		'panelui_show_generate','panelui_show_edit','panelui_show_transfer'
 	]

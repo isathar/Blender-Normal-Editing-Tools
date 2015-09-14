@@ -399,7 +399,7 @@ class cust_normals_genbent(bpy.types.Operator):
 		layout.column().prop(context.window_manager, 'vn_bendingratio', text='Amount')
 		layout.column().prop(context.window_manager, 'vn_editselection', text='Selected Only')
 		if context.active_object.data.use_auto_smooth:
-			layout.column().prop(context.window_manager, 'vn_selected_face', text='Face Selection')
+			layout.column().prop(context.window_manager, 'vn_editbyface', text='Face Selection')
 
 
 # - Smooth (Averaged) -
