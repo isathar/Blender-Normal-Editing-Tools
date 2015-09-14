@@ -3,7 +3,7 @@
 Normals editor for Blender 2.74+
   
   
-*WIP*, initial documentation coming after everything is organized  
+*WIP*, wiki will be updated to reflect current changes soon  
   
 ================================================================  
   
@@ -20,8 +20,22 @@ Normals editor for Blender 2.74+
 ================================================================  
   
 *Changelog:*  
+
+v1.0.0 (current)  
+- *New Feature*:
+  - added new manual edit mode using a manipulator object
+- *General Code Cleanup*:
+  - removed some unused variables left over from testing features
+  - removed unneeded average calculations (let normalization handle it)
+  - created common functions to build mesh data used by all other functions
+  - switched vertex normal editing to bmesh
+- *UI*:
+  - moved shared selection-related variables to data (top) tab
+  - Generate panel overhaul - back to ENUM to save UI space
+- *Generate*:
+  - added weighted normals mode (by connected face areas)  
   
-v0.0.7 (current)  
+v0.0.7
 - fixed ridiculous memory usage + half-working split normals transfer caused by typos  
   
 v0.0.6    
