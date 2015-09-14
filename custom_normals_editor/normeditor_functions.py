@@ -566,9 +566,9 @@ class cust_normals_genweighted_area(bpy.types.Operator):
 				for v in faceslist[i].verts:
 					if showselected:
 						if selectByFace:
-							lfindex[i].append([[vf.normal, vf.select] for vf in v.link_faces])
+							lfindex[i].append([[vf.normal, vf.select, vf.calc_area()] for vf in v.link_faces])
 						else:
-							lfindex[i].append([[vf.normal, v.select] for vf in v.link_faces])
+							lfindex[i].append([[vf.normal, v.select, vf.calc_area()] for vf in v.link_faces])
 					else:
 						lfindex[i].append([[vf.normal, True, vf.calc_area()] for vf in v.link_faces])
 				
