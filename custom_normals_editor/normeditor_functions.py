@@ -156,9 +156,9 @@ class cust_normals_generate(bpy.types.Operator):
 					return bpy.ops.object.cust_normals_genflat.poll()
 				elif context.window_manager.vn_normalsgenmode == 'TRANS':
 					if context.active_object.data.use_auto_smooth:
-						bpy.ops.object.cust_normals_transfer_topoly.poll()
+						return bpy.ops.object.cust_normals_transfer_topoly.poll()
 					else:
-						bpy.ops.object.cust_normals_transfer_tovert.poll()
+						return bpy.ops.object.cust_normals_transfer_tovert.poll()
 		return False
 	
 	def execute(self, context):
