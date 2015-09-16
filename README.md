@@ -8,24 +8,35 @@ Normals editor for Blender 2.74+
 ================================================================  
   
 *Features:*  
-- Normals editor with support for split and vertex normals
-- Supports manual editing and several methods to automatically generate normals via panel ui
-- Pie menu with auto-generate presets
-  - bound to Mouse Button 4 by default, set up in '__init__.py'
-  - refer to 'keyslist.txt' for key names
-  - the line to change is:
-  - 'kmi = km.keymap_items.new('wm.call_menu_pie', 'BUTTON4MOUSE', 'PRESS')'
-- Transfer normals script based on Vrav's Transfer Vertex Normals
+- Normals editor for split and vertex normals
+- Manual Editing by input vector or a rotating arrow object
+- Automatic generation of normals using different presets:
+  - allows generating normals for selected vertices, faces, or the selected mesh
+  - supported methods:
+    - *Default*
+    - *Bent* from cursor location
+	- *Smooth* (average of connected/selected face normals)
+	- *Weighted* (using face areas as weights)
+	- *Flat* (if using split normals)
+	- *Transfer* (originally based on Vrav's Transfer Vertex Normals)
+  - Pie menu with auto-generate presets and mode switcher
+    - bound to Mouse Button 4 by default, set up in '__init__.py'
+    - refer to 'keyslist.txt' for key names
+    - search for: 'kmi = km.keymap_items.new('wm.call_menu_pie', 'BUTTON4MOUSE', 'PRESS')'  
   
 ================================================================  
   
 *Changelog:*  
-
+  
+v1.0.2 (current)  
+- Transfer now takes split normals into account for source objects (if available)
+- removed last instance of average calculation, removed an unused variable in transfer functions  
+  
 v1.0.1 (current)  
 - removed old face index variable
-- added new mode enum to cleanup
-
-v1.0.0 (current)  
+- added new mode enum to cleanup  
+  
+v1.0.0  
 - *New Feature*:
   - added new manual edit mode using a manipulator object
 - *General Code Cleanup*:

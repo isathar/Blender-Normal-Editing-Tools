@@ -31,7 +31,7 @@
 bl_info = {
 	"name": "Normals Editing Tools",
 	"author": "Andreas Wiehn (isathar)",
-	"version": (1, 0, 1),
+	"version": (1, 0, 2),
 	"blender": (2, 74, 0),
 	"location": "View3D > Toolbar",
 	"description": "Editing tools for vertex and split vertex normals",
@@ -122,7 +122,7 @@ class cust_normals_panel(bpy.types.Panel):
 
 
 class PieMenu_CustNormalsBase(bpy.types.Menu):
-	bl_label = 'Generate Normals'
+	bl_label = 'Generate'
 	
 	@classmethod
 	def poll(cls, context):
@@ -138,19 +138,30 @@ class PieMenu_CustNormalsBase(bpy.types.Menu):
 	def draw(self, context):
 		layout = self.layout
 		pie = layout.menu_pie()
+		usesplit = context.active_object.data.use_auto_smooth
+		
+		if usesplit:
+			pie.label("Split Normals",icon='OBJECT_DATA')
+		else:
+			pie.label("Vertex Normals",icon='OUTLINER_OB_EMPTY')
+		
 		pie.operator('object.cust_normals_gencustom', text='Smooth', icon='MATCUBE')
 		pie.operator('object.cust_normals_genbent', text='Bent', icon='MATSPHERE')
 		pie.operator('object.cust_normals_gendefault', text="Default", icon='FILE_REFRESH')
 		
-		if context.active_object.data.use_auto_smooth:
+		if usesplit:
 			pie.operator('object.cust_normals_transfer_topoly', text="Transfer", icon='ORTHO')
+			pie.operator('object.cust_normals_clearvertsplit', text="Switch Mode", icon='OBJECT_DATA')
 		else:
 			pie.operator('object.cust_normals_transfer_tovert', text="Transfer", icon='ORTHO')
+			pie.operator('object.cust_normals_applyvertsplit', text="Switch Mode", icon='OUTLINER_OB_EMPTY')
+		
+		pie.operator('object.cust_normals_flipdir', text='Flip', icon='MATSPHERE')
+		pie.operator('object.cust_normals_genweighted_area', text='Weighted', icon='MATCUBE')
 		
 		pie.operator('object.cust_normals_genflat', text='Flat', icon='EDITMODE_HLT')
-		pie.operator('object.cust_normals_flipdir', text='Flip', icon='MATSPHERE')
 		
-		pie.operator('object.cust_normals_genweighted_area', text='Weighted', icon='MATCUBE')
+		
 		
 
 
@@ -271,7 +282,7 @@ def initdefaults(bpy):
 	types.WindowManager.vn_editselection = bpy.props.BoolProperty(
 		default=False,
 		description='Edit all selected normals')
-	
+
 	types.WindowManager.vn_editmode_enabled = bpy.props.BoolProperty(
 		default=False,
 		description='Enable editing with manipulator object')
