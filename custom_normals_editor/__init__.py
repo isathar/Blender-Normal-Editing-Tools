@@ -31,7 +31,7 @@
 bl_info = {
 	"name": "Normals Editing Tools",
 	"author": "Andreas Wiehn (isathar)",
-	"version": (1, 0, 2),
+	"version": (1, 0, 3),
 	"blender": (2, 74, 0),
 	"location": "View3D > Toolbar",
 	"description": "Editing tools for vertex and split vertex normals",
@@ -93,8 +93,7 @@ class cust_normals_panel(bpy.types.Panel):
 			box2.row().prop(context.window_manager, 'vn_normalsgenmode',text='')
 			box2.row().prop(context.window_manager, 'vn_bendingratio',text='Ratio')
 			if context.window_manager.vn_normalsgenmode == 'TRANS':
-				box2.row().prop(context.window_manager, 'normtrans_maxdist',
-					text='Distance')
+				box2.row().prop(context.window_manager, 'normtrans_maxdist',text='Distance')
 			
 			box2.row().operator('object.cust_normals_generate',text='Generate')
 		

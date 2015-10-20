@@ -16,70 +16,8 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-#######################################
-#	Normals Editor Functions + Classes
-
 import bpy, bmesh
 from mathutils import Vector
-
-
-# returns vertex normals data in list sorted by verts
-# format [[co]*vcount,[normal]*vcount,[selected]*vcount]
-def build_vertexnormalslist(objectdata):
-	editselection = bpy.context.window_manager.vn_editselection
-	vertslist = [v for v in objectdata.vertices]
-	vertnorms_proc = [[],[],[]]
-	
-	for v in vertslist:
-		vertnorms_proc[0].append((v.co).copy())
-		vertnorms_proc[1].append((v.normal).copy())
-		if editselection:
-			vertnorms_proc[2].append(v.select)
-		else:
-			vertnorms_proc[2].append(True)
-	
-	return vertnorms_proc
-	
-
-# returns loop normals data in list sorted by face
-# format: [[[co]*fvcount,[normal]*fvcount,[selected]*fvcount]*fcount]
-def build_loopnormalslist(objectdata):
-	editselection = bpy.context.window_manager.vn_editselection
-	selectByFace = bpy.context.window_manager.vn_editbyface
-	
-	objectdata.calc_normals_split()
-	
-	vertslist = [v for v in objectdata.vertices]
-	faceslist = [f for f in objectdata.polygons]
-	loopnorms_raw = [(l.normal).copy() for l in objectdata.loops]
-	loopnorms_proc = []
-	loopcount = 0
-	
-	for f in faceslist:
-		fvn = []
-		fvco = []
-		fvsel = []
-		
-		for v in f.vertices:
-			fvco.append(vertslist[v].co.copy())
-			fvn.append(loopnorms_raw[loopcount].copy())
-			if editselection:
-				if selectByFace:
-					fvsel.append(f.select)
-				else:
-					fvsel.append(vertslist[v].select)
-			else:
-				fvsel.append(True)
-			loopcount += 1
-		loopnorms_proc.append([fvco,fvn,fvsel])
-	
-	objectdata.free_normals_split()
-	
-	del vertslist[:]
-	del faceslist[:]
-	del loopnorms_raw[:]
-	
-	return loopnorms_proc
 
 
 # picks split/vertex normals from input data, applies custom normals to mesh
@@ -130,10 +68,8 @@ def update_customnormals(mesh, normalslist):
 	return False
 
 
-#####################################
-# Generation methods:
-
-# Entry point:
+########################################
+# Entry point for Generate functions:
 class cust_normals_generate(bpy.types.Operator):
 	bl_idname = 'object.cust_normals_generate'
 	bl_label = 'Generate'
@@ -179,6 +115,9 @@ class cust_normals_generate(bpy.types.Operator):
 				bpy.ops.object.cust_normals_transfer_tovert({},'EXEC_DEFAULT',True)
 		return {'FINISHED'}
 
+
+#####################################
+# Generation methods:
 
 # - Default -
 class cust_normals_gendefault(bpy.types.Operator):
@@ -354,15 +293,56 @@ class cust_normals_genbent(bpy.types.Operator):
 		# build lists
 		normalsdata = []
 		normalsdata_proc = []
+		
 		if editsplit:
-			normalsdata = build_loopnormalslist(mesh)
-			normalsdata_proc = [[] for i in range(len(normalsdata))]
-			for i in range(len(normalsdata)):
-				for v in normalsdata[i][1]:
-					normalsdata_proc[i].append(v.copy())
+			editselection = bpy.context.window_manager.vn_editselection
+			selectByFace = bpy.context.window_manager.vn_editbyface
+			
+			mesh.calc_normals_split()
+			
+			vertslist = [[(v.co).copy(), v.select] for v in mesh.vertices]
+			loopnorms_raw = [(l.normal).copy() for l in mesh.loops]
+			
+			loopcount = 0
+			
+			for f in mesh.polygons:
+				fvn = []
+				fvco = []
+				fvsel = []
+				
+				for v in f.vertices:
+					fvco.append(vertslist[v][0].copy())
+					fvn.append(loopnorms_raw[loopcount].copy())
+					
+					if editselection:
+						if selectByFace:
+							fvsel.append(f.select)
+						else:
+							fvsel.append(vertslist[v][1])
+					else:
+						fvsel.append(True)
+					loopcount += 1
+				
+				normalsdata.append([fvco,fvn,fvsel])
+				normalsdata_proc.append(fvn)
+			
+			mesh.free_normals_split()
+			
+			del vertslist[:]
+			del loopnorms_raw[:]
+			
 		else:
-			normalsdata = build_vertexnormalslist(mesh)
-			normalsdata_proc = [v.copy() for v in normalsdata[1]]
+			editselection = bpy.context.window_manager.vn_editselection
+			normalsdata = [[],[],[]]
+			
+			for v in mesh.vertices:
+				normalsdata[0].append((v.co).copy())
+				normalsdata[1].append((v.normal).copy())
+				normalsdata_proc.append((v.normal).copy())
+				if editselection:
+					normalsdata[2].append(v.select)
+				else:
+					normalsdata[2].append(True)
 		
 		# calculate new normals
 		if editsplit:
@@ -438,8 +418,38 @@ class cust_normals_gencustom(bpy.types.Operator):
 		normalsdata_proc = []
 		
 		if editsplit:
-			normalsdata = build_loopnormalslist(mesh)
-			normalsdata_proc = [[] for i in range(len(normalsdata))]
+			mesh.calc_normals_split()
+			
+			vertslist = [[(v.co).copy(), v.select] for v in mesh.vertices]
+			loopnorms_raw = [(l.normal).copy() for l in mesh.loops]
+			
+			loopcount = 0
+			
+			for f in mesh.polygons:
+				fvn = []
+				fvco = []
+				fvsel = []
+				
+				for v in f.vertices:
+					fvco.append(vertslist[v][0].copy())
+					fvn.append(loopnorms_raw[loopcount].copy())
+					
+					if showselected:
+						if selectByFace:
+							fvsel.append(f.select)
+						else:
+							fvsel.append(vertslist[v][1])
+					else:
+						fvsel.append(True)
+					loopcount += 1
+				
+				normalsdata.append([fvco,fvn,fvsel])
+				normalsdata_proc.append(fvn)
+			
+			mesh.free_normals_split()
+			
+			del vertslist[:]
+			del loopnorms_raw[:]
 			
 			faceslist = [f for f in bm.faces]
 			lfindex = [[] for i in range(len(normalsdata))]
@@ -453,16 +463,19 @@ class cust_normals_gencustom(bpy.types.Operator):
 							lfindex[i].append([[vf.normal, v.select] for vf in v.link_faces])
 					else:
 						lfindex[i].append([[vf.normal, True] for vf in v.link_faces])
-				
-				for v in normalsdata[i][1]:
-					normalsdata_proc[i].append(v.copy())
 			
 			del faceslist[:]
 		else:
-			normalsdata = build_vertexnormalslist(mesh)
+			normalsdata = [[],[],[]]
 			
-			for v in normalsdata[1]:
-				normalsdata_proc.append(v.copy())
+			for v in mesh.vertices:
+				normalsdata[0].append((v.co).copy())
+				normalsdata[1].append((v.normal).copy())
+				normalsdata_proc.append((v.normal).copy())
+				if showselected:
+					normalsdata[2].append(v.select)
+				else:
+					normalsdata[2].append(True)
 			
 			for v in bm.verts:
 				if showselected:
@@ -483,8 +496,7 @@ class cust_normals_gencustom(bpy.types.Operator):
 							if vf[1]:
 								tempfvect = tempfvect + vf[0].copy()
 						
-						tempv = (tempfvect).normalized()
-						tempv = (normalsdata[i][1][j] * (1.0 - bendratio)) + (tempv * bendratio)
+						tempv = (normalsdata[i][1][j] * (1.0 - bendratio)) + ((tempfvect).normalized() * bendratio)
 						normalsdata_proc[i][j] = tempv.normalized()
 			
 		else:
@@ -495,8 +507,7 @@ class cust_normals_gencustom(bpy.types.Operator):
 						if (lfindex[i][j][1]):
 							tempfvect = tempfvect + (lfindex[i][j][0]).copy()
 					
-					tempv = (tempfvect).normalized()
-					tempv = (normalsdata[1][i] * (1.0 - bendratio)) + (tempv * bendratio)
+					tempv = (normalsdata[1][i] * (1.0 - bendratio)) + ((tempfvect).normalized() * bendratio)
 					normalsdata_proc[i] = tempv.normalized()
 		
 		del lfindex[:]
@@ -555,8 +566,39 @@ class cust_normals_genweighted_area(bpy.types.Operator):
 		
 		# build lists
 		if editsplit:
-			normalsdata = build_loopnormalslist(mesh)
-			normalsdata_proc = [[] for i in range(len(normalsdata))]
+			mesh.calc_normals_split()
+			
+			vertslist = [[(v.co).copy(), v.select] for v in mesh.vertices]
+			loopnorms_raw = [(l.normal).copy() for l in mesh.loops]
+			
+			loopcount = 0
+			
+			for f in mesh.polygons:
+				fvn = []
+				fvco = []
+				fvsel = []
+				
+				for v in f.vertices:
+					fvco.append(vertslist[v][0].copy())
+					fvn.append(loopnorms_raw[loopcount].copy())
+					
+					if showselected:
+						if selectByFace:
+							fvsel.append(f.select)
+						else:
+							fvsel.append(vertslist[v][1])
+					else:
+						fvsel.append(True)
+					loopcount += 1
+				
+				normalsdata.append([fvco,fvn,fvsel])
+				normalsdata_proc.append(fvn)
+			
+			mesh.free_normals_split()
+			
+			del vertslist[:]
+			del loopnorms_raw[:]
+			
 			faceslist = [f for f in bm.faces]
 			lfindex = [[] for i in range(len(normalsdata))]
 			
@@ -569,16 +611,19 @@ class cust_normals_genweighted_area(bpy.types.Operator):
 							lfindex[i].append([[vf.normal, v.select, vf.calc_area()] for vf in v.link_faces])
 					else:
 						lfindex[i].append([[vf.normal, True, vf.calc_area()] for vf in v.link_faces])
-				
-				for v in normalsdata[i][1]:
-					normalsdata_proc[i].append(v.copy())
 			
 			del faceslist[:]
 		else:
-			normalsdata = build_vertexnormalslist(mesh)
+			normalsdata = [[],[],[]]
 			
-			for v in normalsdata[1]:
-				normalsdata_proc.append(v.copy())
+			for v in mesh.vertices:
+				normalsdata[0].append((v.co).copy())
+				normalsdata[1].append((v.normal).copy())
+				normalsdata_proc.append((v.normal).copy())
+				if showselected:
+					normalsdata[2].append(v.select)
+				else:
+					normalsdata[2].append(True)
 			
 			for v in bm.verts:
 				if showselected:
@@ -596,8 +641,7 @@ class cust_normals_genweighted_area(bpy.types.Operator):
 							if vf[1]:
 								tempfvect = tempfvect + (vf[0].copy() * vf[2])
 						
-						tempv = (tempfvect).normalized()
-						tempv = (normalsdata[i][1][j] * (1.0 - bendratio)) + (tempv * bendratio)
+						tempv = (normalsdata[i][1][j] * (1.0 - bendratio)) + ((tempfvect).normalized() * bendratio)
 						normalsdata_proc[i][j] = tempv.normalized()
 		else:
 			for i in range(len(normalsdata[1])):
@@ -607,8 +651,7 @@ class cust_normals_genweighted_area(bpy.types.Operator):
 						if (lfindex[i][j][1]):
 							tempfvect = tempfvect + ((lfindex[i][j][0]).copy() * lfindex[i][j][2])
 					
-					tempv = (tempfvect).normalized()
-					tempv = (normalsdata[1][i] * (1.0 - bendratio)) + (tempv * bendratio)
+					tempv = (normalsdata[1][i] * (1.0 - bendratio)) + ((tempfvect).normalized() * bendratio)
 					normalsdata_proc[i] = tempv.normalized()
 		
 		del lfindex[:]
@@ -648,18 +691,48 @@ class cust_normals_genflat(bpy.types.Operator):
 	def execute(self, context):
 		# gather vars
 		bendratio = context.window_manager.vn_bendingratio
+		showselected = context.window_manager.vn_editselection
+		selectByFace = context.window_manager.vn_editbyface
 		
 		mesh = context.active_object.data
 		mesh.update()
 		mesh.calc_normals_split()
 		
 		# build lists
+			
+		vertslist = [[(v.co).copy(), v.select] for v in mesh.vertices]
+		loopnorms_raw = [(l.normal).copy() for l in mesh.loops]
 		
-		normalsdata = build_loopnormalslist(mesh)
-		normalsdata_proc = [[] for i in range(len(normalsdata))]
-		for i in range(len(normalsdata)):
-			for v in normalsdata[i][1]:
-				normalsdata_proc[i].append(v.copy())
+		loopcount = 0
+		
+		normalsdata = []
+		normalsdata_proc = []
+		
+		for f in mesh.polygons:
+			fvn = []
+			fvco = []
+			fvsel = []
+			
+			for v in f.vertices:
+				fvco.append(vertslist[v][0].copy())
+				fvn.append(loopnorms_raw[loopcount].copy())
+				
+				if showselected:
+					if selectByFace:
+						fvsel.append(f.select)
+					else:
+						fvsel.append(vertslist[v][1])
+				else:
+					fvsel.append(True)
+				loopcount += 1
+			
+			normalsdata.append([fvco,fvn,fvsel])
+			normalsdata_proc.append(fvn)
+		
+		mesh.free_normals_split()
+		
+		del vertslist[:]
+		del loopnorms_raw[:]
 		
 		# create new normals
 		fcount = 0
@@ -737,14 +810,50 @@ class cust_normals_flipdir(bpy.types.Operator):
 		normalsdata_proc = []
 		
 		if editsplit:
-			normalsdata = build_loopnormalslist(mesh)
-			normalsdata_proc = [[] for i in range(len(normalsdata))]
-			for i in range(len(normalsdata)):
-				for v in normalsdata[i][1]:
-					normalsdata_proc[i].append(v.copy())
+			mesh.calc_normals_split()
+			
+			vertslist = [[(v.co).copy(), v.select] for v in mesh.vertices]
+			loopnorms_raw = [(l.normal).copy() for l in mesh.loops]
+			
+			loopcount = 0
+			
+			for f in mesh.polygons:
+				fvn = []
+				fvco = []
+				fvsel = []
+				
+				for v in f.vertices:
+					fvco.append(vertslist[v][0].copy())
+					fvn.append(loopnorms_raw[loopcount].copy())
+					
+					if showselected:
+						if selectByFace:
+							fvsel.append(f.select)
+						else:
+							fvsel.append(vertslist[v][1])
+					else:
+						fvsel.append(True)
+					loopcount += 1
+				
+				normalsdata.append([fvco,fvn,fvsel])
+				normalsdata_proc.append(fvn)
+			
+			mesh.free_normals_split()
+			
+			del vertslist[:]
+			del loopnorms_raw[:]
+			
 		else:
-			normalsdata = build_vertexnormalslist(mesh)
-			normalsdata_proc = [v.copy() for v in normalsdata[1]]
+			normalsdata = [[],[],[]]
+			
+			for v in mesh.vertices:
+				normalsdata[0].append((v.co).copy())
+				normalsdata[1].append((v.normal).copy())
+				normalsdata_proc.append((v.normal).copy())
+				if showselected:
+					normalsdata[2].append(v.select)
+				else:
+					normalsdata[2].append(True)
 		
 		
 		# flip normals in list
@@ -1010,15 +1119,47 @@ class cust_normals_manualset(bpy.types.Operator):
 	def execute(self, context):
 		editarrow = context.window_manager.vn_editmode_enabled
 		tempnorm = context.window_manager.vn_dirvector
+		showselected = context.window_manager.vn_editselection
+		selectByFace = context.window_manager.vn_editbyface
 		
 		objdata = context.active_object.data
 		
 		if context.active_object.data.use_auto_smooth:
-			tempdata = build_loopnormalslist(objdata)
-			tempnormals = [[] for i in range(len(tempdata))]
-			for i in range(len(tempdata)):
-				for v in tempdata[i][1]:
-					tempnormals[i].append(v.copy())
+			tempdata = []
+			tempnormals = []
+			
+			objdata.calc_normals_split()
+			
+			vertslist = [[(v.co).copy(), v.select] for v in objdata.vertices]
+			loopnorms_raw = [(l.normal).copy() for l in objdata.loops]
+			
+			loopcount = 0
+			
+			for f in objdata.polygons:
+				fvn = []
+				fvco = []
+				fvsel = []
+				
+				for v in f.vertices:
+					fvco.append(vertslist[v][0].copy())
+					fvn.append(loopnorms_raw[loopcount].copy())
+					
+					if showselected:
+						if selectByFace:
+							fvsel.append(f.select)
+						else:
+							fvsel.append(vertslist[v][1])
+					else:
+						fvsel.append(True)
+					loopcount += 1
+				
+				tempdata.append([fvco,fvn,fvsel])
+				tempnormals.append(fvn)
+			
+			objdata.free_normals_split()
+			
+			del vertslist[:]
+			del loopnorms_raw[:]
 			
 			if len(tempdata) > 0:
 				fcount = 0
@@ -1037,7 +1178,6 @@ class cust_normals_manualset(bpy.types.Operator):
 			
 			del tempdata[:]
 			del tempnormals[:]
-			
 			
 		else:
 			bm = bmesh.new()
@@ -1083,6 +1223,8 @@ class cust_normals_manualget(bpy.types.Operator):
 	
 	def execute(self, context):
 		editarrow = context.window_manager.vn_editmode_enabled
+		showselected = context.window_manager.vn_editselection
+		selectByFace = context.window_manager.vn_editbyface
 		
 		arrowobj = None
 		if editarrow:
@@ -1091,17 +1233,49 @@ class cust_normals_manualget(bpy.types.Operator):
 		objdata = context.active_object.data
 		
 		if context.active_object.data.use_auto_smooth:
-			tempnormals = build_loopnormalslist(objdata)
+			tempdata = []
 			
-			if len(tempnormals) > 0:
-				for f in tempnormals:
+			objdata.calc_normals_split()
+			
+			vertslist = [[(v.co).copy(), v.select] for v in objdata.vertices]
+			loopnorms_raw = [(l.normal).copy() for l in objdata.loops]
+			
+			loopcount = 0
+			
+			for f in objdata.polygons:
+				fvn = []
+				fvco = []
+				fvsel = []
+				
+				for v in f.vertices:
+					fvco.append(vertslist[v][0].copy())
+					fvn.append(loopnorms_raw[loopcount].copy())
+					
+					if showselected:
+						if selectByFace:
+							fvsel.append(f.select)
+						else:
+							fvsel.append(vertslist[v][1])
+					else:
+						fvsel.append(True)
+					loopcount += 1
+				
+				tempdata.append([fvco,fvn,fvsel])
+			
+			objdata.free_normals_split()
+			
+			del vertslist[:]
+			del loopnorms_raw[:]
+			
+			if len(tempdata) > 0:
+				for f in tempdata:
 					for i in range(len(f[0])):
 						if f[2][i]:
 							if editarrow:
 								arrowobj.rotation_quaternion = (f[1][i]).to_track_quat('Z','Y')
 							context.window_manager.vn_dirvector = (f[1][i]).copy()
 							break
-			del tempnormals[:]
+			del tempdata[:]
 			
 		else:
 			sourceverts = [v for v in objdata.vertices]
@@ -1146,6 +1320,8 @@ class cust_normals_transfer_tovert(bpy.types.Operator):
 	
 	def execute(self, context):
 		influenceamount = abs(context.window_manager.vn_bendingratio)
+		showselected = context.window_manager.vn_editselection
+		selectByFace = context.window_manager.vn_editbyface
 		
 		maxdist = context.window_manager.normtrans_maxdist
 		influencemult = 1.0 if (
@@ -1157,80 +1333,126 @@ class cust_normals_transfer_tovert(bpy.types.Operator):
 		if influenceamount > 0.0:
 			destobj = context.active_object.data
 			
-			destdata = build_vertexnormalslist(destobj)
+			destdata = [[],[],[]]
+			
+			for v in destobj.vertices:
+				destdata[0].append((v.co).copy())
+				destdata[1].append((v.normal).copy())
+				if showselected:
+					destdata[2].append(v.select)
+				else:
+					destdata[2].append(True)
+			
 			newnormals = [[] for v in destdata[1]]
-			selobjects = [obj for obj in context.selected_objects]
+			selobjects = [obj.data for obj in context.selected_objects if obj.type == 'MESH']
 			
 			sourceverts = []
-			foundobj = False
+			foundobj = (len(selobjects) > 1)
 			
-			for obj in selobjects:
-				if obj.type == 'MESH':
-					objmesh = obj.data
-					if objmesh != destobj:
-						foundobj = True
+			for objmesh in selobjects:
+				if objmesh != destobj:
+					if objmesh.use_auto_smooth:
+						sourceverts = []
 						
-						if objmesh.use_auto_smooth:
-							sourceverts = build_loopnormalslist(objmesh)
+						objmesh.calc_normals_split()
+			
+						vertslist = [[(v.co).copy(), v.select] for v in objmesh.vertices]
+						loopnorms_raw = [(l.normal).copy() for l in objmesh.loops]
+						
+						loopcount = 0
+						
+						for f in objmesh.polygons:
+							fvn = []
+							fvco = []
+							fvsel = []
 							
-							if len(sourceverts) > 0:
-								vcount = 0
-								for j in range(len(destdata[0])):
-									nearest = (destdata[1][j]).copy()
-									lastdist = maxdist
-									if destdata[2][j]:
-										for f in sourceverts:
-											for i in range(len(f[0])):
-												curdistv = destdata[0][j] - f[0][i]
-												curdist = curdistv.magnitude
-												
-												if curdist < maxdist:
-													if curdist < lastdist:
-														nearest = (f[1][i]).copy()
-														lastdist = curdist
-										
-										tempv = (
-											((destdata[1][j] * (1.0 - influenceamount)) 
-											+ (nearest * influenceamount))
-											* influencemult
-										).normalized()
-										newnormals[vcount].append(tempv)
-									else:
-										newnormals[vcount].append((destdata[1][j]).copy())
-									
-									vcount += 1
+							for v in f.vertices:
+								fvco.append(vertslist[v][0].copy())
+								fvn.append(loopnorms_raw[loopcount].copy())
 								
-								del sourceverts[:]
-						else:
-							sourceverts = build_vertexnormalslist(objmesh)
+								if showselected:
+									if selectByFace:
+										fvsel.append(f.select)
+									else:
+										fvsel.append(vertslist[v][1])
+								else:
+									fvsel.append(True)
+								loopcount += 1
 							
-							if len(sourceverts) > 0:
-								vcount = 0
-								for j in range(len(destdata[0])):
-									nearest = (destdata[1][j]).copy()
-									lastdist = maxdist
-									if destdata[2][j]:
-										for i in range(len(sourceverts[0])):
-											curdistv = destdata[0][j] - sourceverts[0][i]
+							sourceverts.append([fvco,fvn,fvsel])
+						
+						objmesh.free_normals_split()
+						
+						del vertslist[:]
+						del loopnorms_raw[:]
+						
+						
+						if len(sourceverts) > 0:
+							vcount = 0
+							for j in range(len(destdata[0])):
+								nearest = (destdata[1][j]).copy()
+								lastdist = maxdist
+								if destdata[2][j]:
+									for f in sourceverts:
+										for i in range(len(f[0])):
+											curdistv = destdata[0][j] - f[0][i]
 											curdist = curdistv.magnitude
 											
 											if curdist < maxdist:
 												if curdist < lastdist:
-													nearest = (sourceverts[1][i]).copy()
+													nearest = (f[1][i]).copy()
 													lastdist = curdist
-										
-										tempv = (
-											((destdata[1][j] * (1.0 - influenceamount)) 
-											+ (nearest * influenceamount))
-											* influencemult
-										).normalized()
-										newnormals[vcount].append(tempv)
-									else:
-										newnormals[vcount].append((destdata[1][j]).copy())
 									
-									vcount += 1
+									tempv = (
+										((destdata[1][j] * (1.0 - influenceamount)) 
+										+ (nearest * influenceamount))
+										* influencemult
+									).normalized()
+									newnormals[vcount].append(tempv)
+								else:
+									newnormals[vcount].append((destdata[1][j]).copy())
 								
-								del sourceverts[:]
+								vcount += 1
+							
+							del sourceverts[:]
+					else:
+						sourceverts = [[],[],[]]
+			
+						for v in objmesh.vertices:
+							sourceverts[0].append((v.co).copy())
+							sourceverts[1].append((v.normal).copy())
+							if showselected:
+								sourceverts[2].append(v.select)
+							else:
+								sourceverts[2].append(True)
+						
+						if len(sourceverts) > 0:
+							vcount = 0
+							for j in range(len(destdata[0])):
+								nearest = (destdata[1][j]).copy()
+								lastdist = maxdist
+								if destdata[2][j]:
+									for i in range(len(sourceverts[0])):
+										curdistv = destdata[0][j] - sourceverts[0][i]
+										curdist = curdistv.magnitude
+										
+										if curdist < maxdist:
+											if curdist < lastdist:
+												nearest = (sourceverts[1][i]).copy()
+												lastdist = curdist
+									
+									tempv = (
+										((destdata[1][j] * (1.0 - influenceamount)) 
+										+ (nearest * influenceamount))
+										* influencemult
+									).normalized()
+									newnormals[vcount].append(tempv)
+								else:
+									newnormals[vcount].append((destdata[1][j]).copy())
+								
+								vcount += 1
+							
+							del sourceverts[:]
 			
 			del destdata[:]
 			
@@ -1288,6 +1510,8 @@ class cust_normals_transfer_topoly(bpy.types.Operator):
 	
 	def execute(self, context):
 		influenceamount = abs(context.window_manager.vn_bendingratio)
+		showselected = context.window_manager.vn_editselection
+		selectByFace = context.window_manager.vn_editbyface
 		
 		maxdist = context.window_manager.normtrans_maxdist
 		influencemult = 1.0 if (
@@ -1301,88 +1525,163 @@ class cust_normals_transfer_topoly(bpy.types.Operator):
 			maxdist = 8192.0
 		if influenceamount > 0.0:
 			destobj = context.active_object.data
-			destdata = build_loopnormalslist(destobj)
-			
+			destdata = []
 			newnormals = []
-			for i in range(len(destdata)):
-				tempnorms = []
-				for j in range(len(destdata[i][1])):
-					tempnorms.append([])
-				newnormals.append(tempnorms)
 			
-			selobjects = [obj for obj in context.selected_objects]
+			destobj.calc_normals_split()
+			
+			vertslist = [[(v.co).copy(), v.select] for v in destobj.vertices]
+			loopnorms_raw = [(l.normal).copy() for l in destobj.loops]
+			
+			loopcount = 0
+			dfcount = 0
+			for f in destobj.polygons:
+				fvn = []
+				fvco = []
+				fvsel = []
+				newnormals.append([])
+				
+				for v in f.vertices:
+					fvco.append(vertslist[v][0].copy())
+					fvn.append(loopnorms_raw[loopcount].copy())
+					
+					if showselected:
+						if selectByFace:
+							fvsel.append(f.select)
+						else:
+							fvsel.append(vertslist[v][1])
+					else:
+						fvsel.append(True)
+					loopcount += 1
+					
+					newnormals[dfcount].append([])
+				
+				destdata.append([fvco,fvn,fvsel])
+				
+				dfcount += 1
+			
+			destobj.free_normals_split()
+			
+			del vertslist[:]
+			del loopnorms_raw[:]
+			
+			selobjects = [obj.data for obj in context.selected_objects if obj.type == 'MESH']
 			sourceverts = []
 			
-			for obj in selobjects:
-				if obj.type == 'MESH':
-					objmesh = obj.data
-					if objmesh != destobj:
-						foundobj = True
+			foundobj = (len(selobjects) > 1)
+			
+			for objmesh in selobjects:
+				if objmesh != destobj:
+					fcount = 0
+					lastdist = maxdist
+					curdistv = Vector((0.0,0.0,0.0))
+					tempv = Vector((0.0,0.0,0.0))
+					curdist = 0.0
+					
+					if objmesh.use_auto_smooth:
+						sourceverts = []
 						
-						if objmesh.use_auto_smooth:
-							sourceverts = build_loopnormalslist(objmesh)
+						objmesh.calc_normals_split()
+						
+						vertslist = [[(v.co).copy(), v.select] for v in objmesh.vertices]
+						loopnorms_raw = [(l.normal).copy() for l in objmesh.loops]
+						
+						loopcount = 0
+						
+						for f in objmesh.polygons:
+							fvn = []
+							fvco = []
+							fvsel = []
 							
-							if len(sourceverts) > 0:
-								fcount = 0
-								for f in destdata:
-									for i in range(len(f[0])):
-										lastdist = maxdist
-										nearest = f[1][i].copy()
-										
-										if f[2][i]:
-											for df in sourceverts:
-												for j in range(len(df[0])):
-													curdistv = f[0][i] - df[0][j]
-													curdist = curdistv.magnitude
-													if curdist < maxdist:
-														if curdist < lastdist:
-															nearest = df[1][j].copy()
-															lastdist = curdist
-											
-											tempv = (
-												((f[1][i] * (1.0 - influenceamount)) 
-												+ (nearest * influenceamount))
-												* influencemult
-											).normalized()
-											newnormals[fcount][i].append(tempv.copy())
-										
-										else:
-											newnormals[fcount][i].append(f[1][i].copy())
-									
-									fcount += 1
+							for v in f.vertices:
+								fvco.append(vertslist[v][0].copy())
+								fvn.append(loopnorms_raw[loopcount].copy())
 								
-								del sourceverts[:]
-						else:
-							sourceverts = build_vertexnormalslist(objmesh)
-							if len(sourceverts) > 0:
-								fcount = 0
-								for f in destdata:
-									for i in range(len(f[0])):
-										lastdist = maxdist
-										nearest = f[1][i].copy()
-										
-										if f[2][i]:
-											for j in range(len(sourceverts[0])):
-												curdistv = f[0][i] - sourceverts[0][j]
+								if showselected:
+									if selectByFace:
+										fvsel.append(f.select)
+									else:
+										fvsel.append(vertslist[v][1])
+								else:
+									fvsel.append(True)
+								loopcount += 1
+							
+							sourceverts.append([fvco,fvn,fvsel])
+						
+						objmesh.free_normals_split()
+						
+						del vertslist[:]
+						del loopnorms_raw[:]
+						
+						if len(sourceverts) > 0:
+							for f in destdata:
+								for i in range(len(f[0])):
+									lastdist = maxdist
+									nearest = f[1][i].copy()
+									
+									if f[2][i]:
+										for df in sourceverts:
+											for j in range(len(df[0])):
+												curdistv = f[0][i] - df[0][j]
 												curdist = curdistv.magnitude
 												if curdist < maxdist:
 													if curdist < lastdist:
-														nearest = sourceverts[1][j].copy()
+														nearest = df[1][j].copy()
 														lastdist = curdist
-											
-											tempv = (
-												((f[1][i] * (1.0 - influenceamount)) 
-												+ (nearest * influenceamount))
-												* influencemult
-											).normalized()
-											newnormals[fcount][i].append(tempv.copy())
 										
-										else:
-											newnormals[fcount][i].append(f[1][i].copy())
+										tempv = (
+											((f[1][i] * (1.0 - influenceamount)) 
+											+ (nearest * influenceamount))
+											* influencemult
+										).normalized()
+										newnormals[fcount][i].append(tempv.copy())
 									
-									fcount += 1
+									else:
+										newnormals[fcount][i].append(f[1][i].copy())
 								
-								del sourceverts[:]
+								fcount += 1
+							
+							del sourceverts[:]
+					else:
+						sourceverts = [[],[],[]]
+			
+						for v in objmesh.vertices:
+							sourceverts[0].append((v.co).copy())
+							sourceverts[1].append((v.normal).copy())
+							if showselected:
+								sourceverts[2].append(v.select)
+							else:
+								sourceverts[2].append(True)
+						
+						if len(sourceverts) > 0:
+							
+							for f in destdata:
+								for i in range(len(f[0])):
+									lastdist = maxdist
+									nearest = f[1][i].copy()
+									
+									if f[2][i]:
+										for j in range(len(sourceverts[0])):
+											curdistv = f[0][i] - sourceverts[0][j]
+											curdist = curdistv.magnitude
+											if curdist < maxdist:
+												if curdist < lastdist:
+													nearest = sourceverts[1][j].copy()
+													lastdist = curdist
+										
+										tempv = (
+											((f[1][i] * (1.0 - influenceamount)) 
+											+ (nearest * influenceamount))
+											* influencemult
+										).normalized()
+										newnormals[fcount][i].append(tempv.copy())
+									
+									else:
+										newnormals[fcount][i].append(f[1][i].copy())
+								
+								fcount += 1
+							
+							del sourceverts[:]
 			
 			del destdata[:]
 			del selobjects[:]
@@ -1422,43 +1721,4 @@ class cust_normals_transfer_topoly(bpy.types.Operator):
 		layout.column().prop(context.window_manager,
 			'vn_editselection', text='Selected Only')
 		
-
-###############################################
-# import saved normals used by other addons:
-
-# - UDK FBX Tools -
-class cust_normals_readfbxtools(bpy.types.Operator):
-	bl_idname = 'object.cust_normals_readfbxtools'
-	bl_label = 'FBX Tools'
-	bl_description = 'Reads normals from data in a mesh saved with UE FBX Tools'
-	bl_options = {'REGISTER', 'UNDO'}
-	
-	@classmethod
-	def poll(cls, context):
-		if context.mode == 'OBJECT':
-			if context.active_object != None:
-				return context.active_object.type == 'MESH'
-		return False
-	
-	def execute(self, context):
-		
-		return {'FINISHED'}
-
-# - Recalc Vertex Normals -
-class cust_normals_readadsnaddon(bpy.types.Operator):
-	bl_idname = 'object.cust_normals_readadsnaddon'
-	bl_label = 'Recalc Vertex Normals'
-	bl_description = 'Reads normals from data in a mesh saved with Recalc Vertex Normals'
-	bl_options = {'REGISTER', 'UNDO'}
-	
-	@classmethod
-	def poll(cls, context):
-		if context.mode == 'OBJECT':
-			if context.active_object != None:
-				return context.active_object.type == 'MESH'
-		return False
-	
-	def execute(self, context):
-		
-		return {'FINISHED'}
 
