@@ -1,6 +1,6 @@
 # Blender-Normal-Editing-Tools
   
-Normals editor for Blender 2.74+
+Normals editor for Blender 2.74-2.79 (needs to be updated for 2.8)
   
   
 *WIP*, wiki will be updated to reflect current changes soon  
